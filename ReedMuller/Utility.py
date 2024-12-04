@@ -102,3 +102,8 @@ class Utility:
             character = binary_string[i:i + chunk_size]
             characters.append(chr(int(character, 2)))
         return ''.join(characters)
+
+    @staticmethod
+    def flip_bit(noisy_message_in_bits: str, index: int) -> str:
+        # Flip the bit at the specified index
+        return noisy_message_in_bits[:index] + str(int(not int(noisy_message_in_bits[index]))) + noisy_message_in_bits[index + 1:]

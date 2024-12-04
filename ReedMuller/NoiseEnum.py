@@ -35,3 +35,26 @@ class NoiseEnum:
             return "Elastic Out"
         else:
             raise ValueError("Invalid noise type")
+        
+    @staticmethod
+    def from_string(noise_type):
+        if noise_type == "Linear":
+            return NoiseEnum.LINEAR
+        elif noise_type == "Ease In":
+            return NoiseEnum.EASE_IN
+        elif noise_type == "Ease Out":
+            return NoiseEnum.EASE_OUT
+        elif noise_type == "Ease In-Out":
+            return NoiseEnum.EASE_IN_OUT
+        elif noise_type == "Cubic In":
+            return NoiseEnum.CUBIC_IN
+        elif noise_type == "Cubic Out":
+            return NoiseEnum.CUBIC_OUT
+        elif noise_type == "Cubic In-Out":
+            return NoiseEnum.CUBIC_IN_OUT
+        elif noise_type == "Bounce Out":
+            return NoiseEnum.BOUNCE_OUT
+        elif noise_type == "Elastic Out":
+            return NoiseEnum.ELASTIC_OUT
+        else:
+            raise ValueError("Invalid noise type")

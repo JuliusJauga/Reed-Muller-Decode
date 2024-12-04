@@ -32,7 +32,7 @@ class NoiseApplicator:
     
     @staticmethod
     def apply_noise_with_ease(message, noise_amount, easing_function):
-        noisy_message = ""
+        noisy_message = message.copy()
         mistake_positions = []
         message_length = len(message)
 
@@ -46,10 +46,7 @@ class NoiseApplicator:
             # Apply noise based on the adjusted probability
             if random.random() < adjusted_noise_amount:
                 # Flip the bit
-                noisy_message += str(int(not int(bit)))
+                noisy_message[i] = 1 - bit
                 mistake_positions.append(i)  # Store the original position of the mistake
-            else:
-                # Keep the original bit
-                noisy_message += bit
 
         return noisy_message, mistake_positions
