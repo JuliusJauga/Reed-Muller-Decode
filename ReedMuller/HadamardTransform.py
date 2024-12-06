@@ -27,9 +27,29 @@ class HadamardTransform(IDecoder):
         return [1 if bit == 1 else -1 for bit in message]
     
     def decode(self, message):
+        # print(
+        #     f"Decoding message: {message}"
+        # )
         message = self.fast_hadamard_transform(message)
+        # print(
+        #     f"After fast hadamard message: {message}"
+        # )
         position, sign = self.find_largest_component_position(message)
-        position_in_bits = HadamardTransform.int_to_unpacked_bit_list(position, self.m)
+        # print(
+        #     f"Position: {position}, Sign: {sign}"
+        # )
+        try:
+            position_in_bits = HadamardTransform.int_to_unpacked_bit_list(position, self.m)
+        except Exception as e:
+            # print(
+            #     f"Error: {e}"
+            # )
+            # print("With position: ", position)
+            return
+
+        # print(
+        #     f"Position in bits: {position_in_bits}"
+        # )
         position_in_bits = HadamardTransform.reverse_bit_list(position_in_bits)
         position_reversed = position_in_bits
         while len(position_reversed) < self.m + 1:
@@ -51,6 +71,8 @@ class HadamardTransform(IDecoder):
             raise ValueError("length must be greater than or equal to n.bit_length()")
         if length is None:
             length = n.bit_length()
+        if n == 0:
+            return np.zeros(length, dtype=np.uint8).tolist()
         bit_list = np.unpackbits(np.array([n], dtype=np.uint8))
         bit_list = bit_list.tolist()
         while bit_list[0] == 0:

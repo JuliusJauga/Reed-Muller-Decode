@@ -29,6 +29,61 @@ def apply_noise(noise_type: NoiseEnum, noise_amount: float, coder: ReedMuller) -
 def decode_message(coder: ReedMuller) -> str:
     return coder.decode()
 
+# Helper functions
+def toggle_bit(index):
+    """Toggle a noisy bit and update its value."""
+    st.session_state['encoded_bits'] = st.session_state['coder'].flip_mistake_position(index)
+
+# Helper functions
+def render_bits(start, end):
+    """Generate HTML for the bits display."""
+    original_bits = st.session_state.coder.get_encoded_message()
+    noisy_bits = st.session_state.coder.get_noisy_message()
+
+    bits_html = "<div class='bit-container'>"
+    for i, (orig, curr) in enumerate(zip(original_bits[start:end], noisy_bits[start:end]), start=start):
+        color_class = "green" if orig == curr else "red"
+        bits_html += (
+            f"<div class='bit {color_class}' onclick=\"fetch('/?toggle_bit={i}').then(() => window.location.reload());\">"
+            f"{curr}</div>"
+        )
+    bits_html += "</div>"
+    return bits_html
+
+st.markdown(
+    """
+    <style>
+    .bit-container {
+        display: flex;
+        flex-wrap: wrap;
+        overflow-x: auto;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        max-height: 200px; /* Adjust this for scrolling height */
+    }
+    .bit {
+        width: 20px; /* Fixed width for uniform spacing */
+        height: 20px;
+        margin: 2px;
+        text-align: center;
+        line-height: 20px;
+        border-radius: 3px;
+        color: white;
+        cursor: pointer;
+    }
+    .green {
+        background-color: green;
+    }
+    .red {
+        background-color: red;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
 
 # Main function
 def main():
@@ -38,6 +93,8 @@ def main():
         st.session_state['encoded_bits'] = None
         st.session_state['decoded_message'] = None
         st.session_state['uploaded_file'] = None
+        st.session_state.current_page = 0
+
 
     # App UI
     st.title("Reed-Muller Encoding and Decoding")
@@ -95,7 +152,8 @@ def main():
             min_value=0.0, 
             max_value=1.0, 
             value=st.session_state['noise_amount'], 
-            step=0.01
+            step=0.01,
+            on_change=lambda: st.session_state.update({'apply_noise': True})
         )
 
         # Update session state when slider changes
@@ -104,7 +162,8 @@ def main():
         # Text input for noise amount with validation (allowing both ',' and '.')
         noise_amount_str = st.text_input(
             "Enter noise amount (use ',' or '.'): ", 
-            value=str(st.session_state['noise_amount'])
+            value=str(st.session_state['noise_amount']),
+            on_change=lambda: st.session_state.update({'apply_noise': True})
         )
 
         # Validate and update noise amount based on user input
@@ -122,11 +181,41 @@ def main():
             # Display error if input is not a valid float
             st.error("Invalid noise amount. Please enter a valid number.")
 
-        if st.button("Apply Noise"):
+        if st.button("Apply Noise") or st.session_state.get('apply_noise', False):
             st.session_state['encoded_bits'] = apply_noise(NoiseEnum.from_string(noise_type), st.session_state['noise_amount'], st.session_state['coder'])
+            st.session_state['apply_noise'] = False
 
-        st.write("Encoded bits:")
-        # # Display colored bits in a scrollable, wrapping container
+        st.write("Encoded bits:")   
+        # Display colored bits in a scrollable, wrapping container
+        BITS_PER_PAGE = 100
+        start = st.session_state.current_page * BITS_PER_PAGE
+        end = min(start + BITS_PER_PAGE, len(st.session_state['coder'].get_noisy_message()))
+
+
+        
+        # Handle query parameter for toggling bits
+        # Render bits
+        st.write(f"Displaying bits {start + 1} to {end}:")
+        bits_html = render_bits(start, end)
+        st.markdown(bits_html, unsafe_allow_html=True)
+
+        # Pagination buttons
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Previous"):
+                if st.session_state.current_page > 0:
+                    st.session_state.current_page -= 1
+        with col2:
+            if st.button("Next"):
+                if end < len(st.session_state.coder.get_encoded_message()):
+                    st.session_state.current_page += 1
+        
+        
+        
+        
+        
+        
+        
         # with st.container():
         #     original_bits = st.session_state['coder'].get_encoded_message()
         #     current_bits = st.session_state['coder'].get_noisy_message()
@@ -185,7 +274,8 @@ def main():
             elapsed_time = end_time - start_time
             st.write(f"Decoding took {elapsed_time:.2f} seconds")
             st.session_state['decoded_message'] = decoded_message
-            st.success(f"Decoded message: {decoded_message}")
+            st.session_state['decoded_string'] = Utility.np_bit_array_to_str(np.array(decoded_message))
+            st.success(f"Decoded message: {decoded_message}\n\n\nDecoded string: {st.session_state['decoded_string']}")
         else:
             with st.spinner('Decoding...'):
                 start_time = time.time()

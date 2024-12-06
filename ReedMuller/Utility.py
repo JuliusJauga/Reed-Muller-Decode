@@ -1,3 +1,5 @@
+import numpy as np
+
 class Utility:
     @staticmethod
     def display_matrix(matrix):
@@ -107,3 +109,20 @@ class Utility:
     def flip_bit(noisy_message_in_bits: str, index: int) -> str:
         # Flip the bit at the specified index
         return noisy_message_in_bits[:index] + str(int(not int(noisy_message_in_bits[index]))) + noisy_message_in_bits[index + 1:]
+    
+    @staticmethod
+    def np_bit_array_to_str(bits):
+        # Reshape the bit array into bytes (8 bits per byte)
+        while True:
+            try:
+                bytes_array = bits.reshape(-1, 8)
+                break
+            except:
+                bits = bits[:-1]
+        # Convert each byte to an integer
+        byte_values = np.packbits(bytes_array, axis=1).flatten()
+
+        # Decode the byte values to a string
+        decoded_string = byte_values.tobytes().decode('utf-8', errors='ignore')
+        
+        return decoded_string
