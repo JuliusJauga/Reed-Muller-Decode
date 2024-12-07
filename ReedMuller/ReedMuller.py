@@ -6,6 +6,25 @@ from .NoiseEnum import NoiseEnum
 import numpy as np
 import concurrent.futures
 import time
+from multiprocessing import shared_memory
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
+
+
+def decode_worker(start, end, shm_name, shape, dtype, m, decoder):
+    shm = shared_memory.SharedMemory(name=shm_name)
+    shared_data = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
+    chunk = shared_data[start:end]
+    chunks, appended_bits = ReedMuller.split_message_for_decoding(chunk, 2**m)
+    decoded_message = []
+    for chunk in chunks:
+        decoded_message.extend(decoder.decode(chunk))
+    if appended_bits > 0:
+        decoded_message = decoded_message[:-appended_bits]
+    return decoded_message
+
+
+
 
 class ReedMuller:
     def __init__(self, r: int, m: int, decoder: IDecoder):
@@ -36,7 +55,8 @@ class ReedMuller:
         elif all(bit in [0, 1] for bit in message):
             self.message = message
         else:
-            self.message = np.unpackbits(np.array(message)).tolist()
+            self.message = np.unpackbits(np.array(message))
+            print(self.message)
             end_time = time.time()
             print(f"Time taken to set message: {end_time - start_time}")
     
@@ -157,17 +177,43 @@ class ReedMuller:
         encoded_message = []
         generator = self.generator_matrix(self.r, self.m)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            futures = {executor.submit(self.encode_big_chunk, chunk, generator): i for i, chunk in enumerate(chunks)}
-            results = [None] * len(chunks)
-            for future in concurrent.futures.as_completed(futures):
-                index = futures[future]
-                results[index] = future.result()
-            for result in results:
-                if result is not None:
-                    encoded_message.extend(result)
+        flat_message = np.array(message, dtype=np.uint8)
+        shared_mem = shared_memory.SharedMemory(create=True, size=flat_message.nbytes)
+        shared_array = np.ndarray(flat_message.shape, dtype=flat_message.dtype, buffer=shared_mem.buf)
+        np.copyto(shared_array, flat_message)
+
+        try:
+            with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+                futures = {
+                    executor.submit(ReedMuller.encode_worker, chunk, generator, shared_mem.name, flat_message.shape, flat_message.dtype, self.m): i
+                    for i, chunk in enumerate(chunks)
+                }
+
+                results = [None] * len(chunks)
+                for future in as_completed(futures):
+                    index = futures[future]
+                    results[index] = future.result()
+                for result in results:
+                    if result is not None:
+                        encoded_message.extend(result)
+        
+        finally:
+            shared_mem.close()
+            shared_mem.unlink()
+
         self.noisy_message = encoded_message
         self.encoded_message = encoded_message
+        return encoded_message
+    
+    @staticmethod
+    def encode_worker(chunk, generator, shm_name, shape, dtype, m):
+        shm = shared_memory.SharedMemory(name=shm_name)
+        shared_data = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
+        chunk = shared_data[chunk].tolist()
+        chunks = ReedMuller.split_message_for_encoding(chunk, m)
+        encoded_message = []
+        for chunk in chunks:
+            encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
         return encoded_message
     
     def encode_big_chunk(self, chunk, generator):
@@ -195,16 +241,6 @@ class ReedMuller:
             return self.decode_sequentially(self.noisy_message)
         chunks, self.appended_bits = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
         decoded_message = []
-        # with concurrent.futures.ThreadPoolExecutor() as executor:
-        #     futures = {executor.submit(self.decoder.decode, chunk): i for i, chunk in enumerate(chunks)}
-        #     results = [None] * len(chunks)
-        #     for future in concurrent.futures.as_completed(futures):
-        #         index = futures[future]
-        #         results[index] = future.result()
-        #     for result in results:
-        #         if result is not None:
-        #             # print(result)
-        #             decoded_message.extend(result)
         for chunk in chunks:
             decoded_message.extend(self.decoder.decode(chunk))
         if self.appended_bits > 0:
@@ -220,20 +256,43 @@ class ReedMuller:
 
 
     def decode_sequentially(self, message):
-        big_chunks = self.split_into_16x16_chunks(message)
-        decoded_message = []
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = {executor.submit(self.decode_big_chunk, chunk): i for i, chunk in enumerate(big_chunks)}
-            results = [None] * len(big_chunks)
-            for future in concurrent.futures.as_completed(futures):
-                index = futures[future]
-                results[index] = future.result()
-            for result in results:
-                if result is not None:
-                    decoded_message.extend(result)
-        return decoded_message
+        """Decode a message using shared memory and concurrent processing."""
+        # Create a flat NumPy array from the message
+        flat_message = np.array(message, dtype=np.uint8)
+        shared_mem = shared_memory.SharedMemory(create=True, size=flat_message.nbytes)
+        shared_array = np.ndarray(flat_message.shape, dtype=flat_message.dtype, buffer=shared_mem.buf)
+        np.copyto(shared_array, flat_message)
 
+        try:
+            # Split the message into chunk ranges
+            chunk_size = 16 * 16 * 3 * 8 * int((2**self.m) / (self.m + 1))
+            ranges = [(i, min(i + chunk_size, len(flat_message))) for i in range(0, len(flat_message), chunk_size)]
+
+            # Process chunks in parallel
+            decoded_message = []
+            with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+                futures = {
+                    executor.submit(decode_worker, start, end, shared_mem.name, flat_message.shape, flat_message.dtype, self.m, self.decoder): i
+                    for i, (start, end) in enumerate(ranges)
+                }
+
+                results = [None] * len(ranges)
+                for future in as_completed(futures):
+                    index = futures[future]
+                    results[index] = future.result()
+                for result in results:
+                    if result is not None:
+                        decoded_message.extend(result)
+
+        finally:
+            # Clean up shared memory
+            shared_mem.close()
+            shared_mem.unlink()
+
+        return decoded_message
+    
     def decode_big_chunk(self, chunk):
+        """Decode a chunk of the message."""
         chunks, appended_bits = ReedMuller.split_message_for_decoding(chunk, 2**self.m)
         decoded_message = []
         for chunk in chunks:
@@ -244,8 +303,8 @@ class ReedMuller:
     
     def split_into_16x16_chunks(self, message):
         chunks = []
-        for i in range(0, len(message), 16*16*3*8*3):
-            chunks.append(message[i:i + 16*16*3*8*3])
+        for i in range(0, len(message), 16*16*3*8*int((2**self.m)/(self.m+1))):
+            chunks.append(message[i:i + 16*16*3*8*int((2**self.m)/(self.m+1))])
         return chunks
     
     def split_into_16x16_chunks_for_encoding(self, message):
@@ -253,5 +312,7 @@ class ReedMuller:
         for i in range(0, len(message), 16*16*3*8):
             chunks.append(message[i:i + 16*16*3*8])
         return chunks
+    
+
     
     

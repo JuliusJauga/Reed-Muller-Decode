@@ -7,6 +7,9 @@ import time
 import cv2
 import numpy as np
 from PIL import Image
+import multiprocessing
+
+
 
 def image_to_binary(image):
     # Load the image
@@ -176,6 +179,13 @@ def main():
         with st.spinner('Encoding...'):
             start_time = time.time()
             try:
+                # pool = multiprocessing.Pool()
+                # encoded_bits = pool.apply_async(encode_message, args=(message, st.session_state['coder'])).get()
+                # pool.close()
+                # pool.join()
+                # with multiprocessing.Pool() as pool:
+                #     encoded_bits = pool.apply(encode_message, args=(message, st.session_state['coder']))
+                
                 encoded_bits = encode_message(message, st.session_state['coder'])
             except ValueError as e:
                 st.error(f"Error: {e}")
