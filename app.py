@@ -8,6 +8,26 @@ import cv2
 import numpy as np
 from PIL import Image
 
+def image_to_binary(image):
+    # Load the image
+    img = image.convert('RGB')
+    img_array = np.array(img, dtype=np.uint8)  # Convert to NumPy array
+
+    # Flatten and convert each channel to binary
+    binary_array = np.unpackbits(img_array.flatten())
+
+    return binary_array, img_array.shape  # Return binary data and original shape
+
+def binary_to_image(binary_array, shape):
+    # Reshape and convert binary back to uint8
+    byte_array = np.packbits(binary_array)
+    img_array = byte_array.reshape(shape)
+
+    # Convert back to a PIL image
+    return Image.fromarray(img_array, mode='RGB')
+
+
+
 # Initialize Reed-Muller and Hadamard transform objects
 if 'decoder' not in st.session_state:
     st.session_state['decoder'] = HadamardTransform(3)
@@ -104,6 +124,7 @@ def main():
 
     if input_type == "Text":
         message = st.text_input("Enter your message:")
+        st.session_state['uploaded_file'] = None
     elif input_type == "Image":
         uploaded_file = st.file_uploader("Upload an image", type=["bmp"])
         st.session_state['uploaded_file'] = uploaded_file
@@ -111,23 +132,42 @@ def main():
             image = Image.open(uploaded_file)
             st.session_state['original_image'] = image
             st.image(image, caption='Uploaded Image', use_column_width=True)
-            image = np.array(image)
             
-            # Convert image to binary without losing color
-            binary_image = np.zeros_like(image)
-            for i in range(3):  # Assuming RGB image
-                _, binary_image[:, :, i] = cv2.threshold(image[:, :, i], 128, 255, cv2.THRESH_BINARY)
+            # Convert image to binary
+            message, orig_shape = image_to_binary(image)
+            st.session_state['original_shape'] = orig_shape  # Save original shape
+            # Display binary image
+            st.image(binary_to_image(message, orig_shape), caption='Binary Image', use_column_width=True)
             
-            # Flatten and pack bits for encoding
-            message = np.packbits(binary_image.flatten())
-            unpacked_message = np.unpackbits(message)
-            unpacked_bit_list = unpacked_message.tolist()
-            message = ''.join(map(str, unpacked_bit_list))
+            
+            # image = np.array(image)
+            
+            # start_time = time.time()
+            # # Convert image to binary without losing color
+            # binary_image = np.zeros_like(image)
+            # for i in range(3):  # Assuming RGB image
+                # _, binary_image[:, :, i] = cv2.threshold(image[:, :, i], 128, 255, cv2.THRESH_BINARY)
+            
+            # end_time = time.time()
+            # print(f"Converting image to binary took {end_time - start_time:.2f} seconds")
+            # # Flatten and pack bits for encoding
+            # message = binary_image.flatten()
+
+            # message = np.packbits(message).astype(np.uint8)
+            # st.image(binary_to_image(message, image.shape), caption='Binary Image', use_column_width=True)
+            
+            
+            
+            # print(message)
+            # message = np.packbits(binary_image.flatten())
+            # unpacked_message = np.unpackbits(message)
+            # unpacked_bit_list = unpacked_message.tolist()
+            # message = ''.join(map(str, unpacked_bit_list))
 
             # print(unpacked_bit_list)
     m_value = st.number_input("Enter the value of m:", min_value=1, max_value=100, value=3)
 
-    if st.button("Encode") and message and m_value:
+    if st.button("Encode") and m_value:
         st.session_state['decoder'] = HadamardTransform(m_value)
         st.session_state['coder'] = ReedMuller(1, m_value, st.session_state['decoder'])
         with st.spinner('Encoding...'):
@@ -214,60 +254,7 @@ def main():
             if st.button("Next"):
                 if end < len(st.session_state.coder.get_encoded_message()):
                     st.session_state.current_page += 1
-        
-        
-        
-        
-        
-        
-        
-        # with st.container():
-        #     original_bits = st.session_state['coder'].get_encoded_message()
-        #     current_bits = st.session_state['coder'].get_noisy_message()
 
-        #     # CSS for styling the bits display
-        #     st.markdown(
-        #         """
-        #         <style>
-        #         .bit-container {
-        #             display: flex;
-        #             flex-wrap: wrap;
-        #             overflow-x: auto;
-        #             padding: 10px;
-        #             border: 1px solid #ccc;
-        #             border-radius: 5px;
-        #             max-height: 200px; /* Adjust this for scrolling height */
-        #         }
-        #         .bit {
-        #             width: 20px; /* Fixed width for uniform spacing */
-        #             height: 20px;
-        #             margin: 2px;
-        #             text-align: center;
-        #             line-height: 20px;
-        #             border-radius: 3px;
-        #             color: white;
-        #         }
-        #         .green {
-        #             background-color: green;
-        #         }
-        #         .red {
-        #             background-color: red;
-        #         }
-        #         </style>
-        #         """,
-        #         unsafe_allow_html=True,
-        #     )
-
-        #     # Generate HTML for bits
-        #     bits_html = "<div class='bit-container'>"
-        #     for orig, curr in zip(original_bits, current_bits):
-        #         color_class = "green" if orig == curr else "red"
-        #         bits_html += f"<div class='bit {color_class}'>{curr}</div>"
-        #     bits_html += "</div>"
-            
-
-        #     # Render the bits display
-        #     st.markdown(bits_html, unsafe_allow_html=True)
 
     # Decode section
     if st.button("Decode") and st.session_state['encoded_bits']:
@@ -290,11 +277,12 @@ def main():
             st.write(f"Decoding took {elapsed_time:.2f} seconds")
             # print(decoded_message)
             decoded_message = np.array(decoded_message)
-            decoded_message = np.packbits(decoded_message).astype(np.uint8)
-            decoded_image = np.reshape(decoded_message, (*st.session_state['original_image'].size[::-1], 3))
-            decoded_image = cv2.cvtColor(decoded_image, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
-            st.image(decoded_image, caption='Decoded Image', use_column_width=True)
+            # decoded_message = np.packbits(decoded_message).astype(np.uint8)
+            # decoded_image = np.reshape(decoded_message, (*st.session_state['original_image'].size[::-1], 3))
+            # decoded_image = cv2.cvtColor(decoded_image, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
+            # st.image(decoded_image, caption='Decoded Image', use_column_width=True)
             st.image(st.session_state['original_image'], caption='Original Image', use_column_width=True)
+            st.image(binary_to_image(decoded_message, st.session_state['original_shape']), caption='Decoded Image', use_column_width=True)
             st.success(f"Decoded message: {decoded_message}")
 
     # Reset functionality

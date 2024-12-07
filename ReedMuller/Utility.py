@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 class Utility:
     @staticmethod
@@ -8,16 +9,27 @@ class Utility:
 
     @staticmethod
     def vector_by_matrix_mod2(vector, matrix):
+        # start_time = time.time()
         result = []
-        columns = []
+        # columns = []
+        matrix_length = len(matrix)
+        # transposed_matrix = Utility.transpose(matrix)
+        # vector_length = len(vector)
         for j in range(len(matrix[0])):
-            column = []
-            for i in range(len(matrix)):
-                column.append(matrix[i][j])
-            columns.append(column)
-        for col in columns:
-            result.append(Utility.dot_product_mod2(vector, col))
-        return result
+            column = [matrix[i][j] for i in range(matrix_length)]
+            result.append(Utility.dot_product_mod2(vector, column))
+
+            
+            # result.append(Utility.dot_product_mod2(vector, column))
+# 
+        # for col in columns:
+            # result.append(Utility.dot_product_mod2(vector, col))
+        # end_time = time.time()
+        # print(f"Time taken to multiply vector by matrix: {end_time - start_time}")
+        return result 
+    # @staticmethod
+    # def transpose(matrix):
+        # return [[matrix[j][i] for j in range(len(matrix))] for i in range(len(matrix[0]))]
 
     @staticmethod
     def dot_product_mod2(v1, v2):

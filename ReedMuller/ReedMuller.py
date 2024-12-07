@@ -5,6 +5,7 @@ from .NoiseApplicator import NoiseApplicator
 from .NoiseEnum import NoiseEnum
 import numpy as np
 import concurrent.futures
+import time
 
 class ReedMuller:
     def __init__(self, r: int, m: int, decoder: IDecoder):
@@ -22,11 +23,12 @@ class ReedMuller:
         
 
     def set_message(self, message):
+        start_time = time.time()
         if message is None:
             raise ValueError("Message cannot be None")
-        if message == "":
-            raise ValueError("Message cannot be empty")
         if isinstance(message, str):
+            if message == "":
+                raise ValueError("Message cannot be empty")
             binary_image = np.array([int(bit) for bit in ''.join(format(ord(char), '08b') for char in message)])
             packed_message = np.packbits(binary_image.flatten())
             unpacked_message = np.unpackbits(packed_message)
@@ -34,7 +36,9 @@ class ReedMuller:
         elif all(bit in [0, 1] for bit in message):
             self.message = message
         else:
-            raise ValueError("Message must be a string or a list of bits")
+            self.message = np.unpackbits(np.array(message)).tolist()
+            end_time = time.time()
+            print(f"Time taken to set message: {end_time - start_time}")
     
     def get_message(self):
         return self.message
@@ -119,17 +123,23 @@ class ReedMuller:
     def encode(self):
         # Encode the message using the generator matrix
         chunks = ReedMuller.split_message_for_encoding(self.message, self.m)
+        print((len(chunks), len(chunks[0])))
+        start_time = time.time()
         generator = self.generator_matrix(self.r, self.m)
+        end_time = time.time()
+        print(f"Time taken to generate matrix: {end_time - start_time}")
         encoded_message = []
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = {executor.submit(Utility.vector_by_matrix_mod2, [int(bit) for bit in chunk], generator): i for i, chunk in enumerate(chunks)}
-            results = [None] * len(chunks)
-            for future in concurrent.futures.as_completed(futures):
-                index = futures[future]
-                results[index] = future.result()
-            for result in results:
-                if result is not None:
-                    encoded_message.extend(result)
+        # with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        #     futures = {executor.submit(Utility.vector_by_matrix_mod2, chunk, generator): i for i, chunk in enumerate(chunks)}
+        #     results = [None] * len(chunks)
+        #     for future in concurrent.futures.as_completed(futures):
+        #         index = futures[future]
+        #         results[index] = future.result()
+        #     for result in results:
+        #         if result is not None:
+        #             encoded_message.extend(result)
+        for chunk in chunks:
+            encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
         self.encoded_message = encoded_message
         self.noisy_message = self.encoded_message
         return self.encoded_message
@@ -141,20 +151,65 @@ class ReedMuller:
 
     def decode(self):
         # Decode the message using the decoder
+        if len(self.noisy_message) == 0:
+            raise ValueError("No noisy message to decode")
+        
+        if len(self.noisy_message) > 20000:
+            print("Message too large, using sequential decoding")
+            return self.decode_sequentially()
         chunks, self.appended_bits = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
         decoded_message = []
+        # with concurrent.futures.ThreadPoolExecutor() as executor:
+        #     futures = {executor.submit(self.decoder.decode, chunk): i for i, chunk in enumerate(chunks)}
+        #     results = [None] * len(chunks)
+        #     for future in concurrent.futures.as_completed(futures):
+        #         index = futures[future]
+        #         results[index] = future.result()
+        #     for result in results:
+        #         if result is not None:
+        #             # print(result)
+        #             decoded_message.extend(result)
+        for chunk in chunks:
+            decoded_message.extend(self.decoder.decode(chunk))
+        if self.appended_bits > 0:
+            decoded_message = decoded_message[:-self.appended_bits]
+        return decoded_message
+
+    def decode_rgb(self):
+        chunks = self.split_into_16x16_chunks(self.noisy_message)
+        decoded_message = []
+        for chunk in chunks:
+            decoded_message.extend(self.decode_big_chunk(chunk))
+        return decoded_message
+
+
+    def decode_sequentially(self, message):
+        big_chunks = self.split_into_16x16_chunks(message)
+        decoded_message = []
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = {executor.submit(self.decoder.decode, chunk): i for i, chunk in enumerate(chunks)}
-            results = [None] * len(chunks)
+            futures = {executor.submit(self.decode_big_chunk, chunk): i for i, chunk in enumerate(big_chunks)}
+            results = [None] * len(big_chunks)
             for future in concurrent.futures.as_completed(futures):
                 index = futures[future]
                 results[index] = future.result()
             for result in results:
                 if result is not None:
-                    # print(result)
                     decoded_message.extend(result)
-        if self.appended_bits > 0:
-            decoded_message = decoded_message[:-self.appended_bits]
         return decoded_message
 
+    def decode_big_chunk(self, chunk):
+        chunks, appended_bits = ReedMuller.split_message_for_decoding(chunk, 2**self.m)
+        decoded_message = []
+        for chunk in chunks:
+            decoded_message.extend(self.decoder.decode(chunk))
+        if appended_bits > 0:
+            decoded_message = decoded_message[:-appended_bits]
+        return decoded_message
+    
+    def split_into_16x16_chunks(self, message):
+        chunks = []
+        for i in range(0, len(message), 16*16*3*8):
+            chunks.append(message[i:i + 16*16*3*8])
+        return chunks
+    
     
