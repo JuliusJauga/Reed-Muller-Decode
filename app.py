@@ -52,6 +52,7 @@ def decode_message(coder: ReedMuller) -> str:
 # Helper functions
 def toggle_bit(index):
     """Toggle a noisy bit and update its value."""
+    print(f"Toggling bit at index {index}")
     st.session_state['encoded_bits'] = st.session_state['coder'].flip_mistake_position(index)
 
 # Helper functions
@@ -125,19 +126,21 @@ def main():
     if input_type == "Text":
         message = st.text_input("Enter your message:")
         st.session_state['uploaded_file'] = None
+        st.session_state['original_image'] = None
+        st.session_state['original_shape'] = None
     elif input_type == "Image":
         uploaded_file = st.file_uploader("Upload an image", type=["bmp"])
         st.session_state['uploaded_file'] = uploaded_file
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
             st.session_state['original_image'] = image
-            st.image(image, caption='Uploaded Image', use_column_width=True)
+            st.image(image, caption='Uploaded Image', use_container_width=True)
             
             # Convert image to binary
             message, orig_shape = image_to_binary(image)
             st.session_state['original_shape'] = orig_shape  # Save original shape
             # Display binary image
-            st.image(binary_to_image(message, orig_shape), caption='Binary Image', use_column_width=True)
+            # st.image(binary_to_image(message, orig_shape), caption='Binary Image', use_column_width=True)
             
             
             # image = np.array(image)
@@ -172,7 +175,10 @@ def main():
         st.session_state['coder'] = ReedMuller(1, m_value, st.session_state['decoder'])
         with st.spinner('Encoding...'):
             start_time = time.time()
-            encoded_bits = encode_message(message, st.session_state['coder'])
+            try:
+                encoded_bits = encode_message(message, st.session_state['coder'])
+            except ValueError as e:
+                st.error(f"Error: {e}")
             end_time = time.time()
         elapsed_time = end_time - start_time
         st.write(f"Encoding took {elapsed_time:.2f} seconds")
@@ -268,6 +274,7 @@ def main():
             st.session_state['decoded_message'] = decoded_message
             st.session_state['decoded_string'] = Utility.np_bit_array_to_str(np.array(decoded_message))
             st.success(f"Decoded message: {decoded_message}\n\n\nDecoded string: {st.session_state['decoded_string']}")
+            # st.success(f"Decoded message: {decoded_message}")
         else:
             with st.spinner('Decoding...'):
                 start_time = time.time()
@@ -281,9 +288,16 @@ def main():
             # decoded_image = np.reshape(decoded_message, (*st.session_state['original_image'].size[::-1], 3))
             # decoded_image = cv2.cvtColor(decoded_image, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
             # st.image(decoded_image, caption='Decoded Image', use_column_width=True)
-            st.image(st.session_state['original_image'], caption='Original Image', use_column_width=True)
-            st.image(binary_to_image(decoded_message, st.session_state['original_shape']), caption='Decoded Image', use_column_width=True)
-            st.success(f"Decoded message: {decoded_message}")
+            col1, col2 = st.columns([2, 2])
+            with col1:
+                st.image(st.session_state['original_image'], caption='Original Image', use_container_width=True)
+            with col2:
+                # st.image(st.session_state['original_image'], caption='Original Image', use_container_width=True)
+                st.image(binary_to_image(decoded_message, st.session_state['original_shape']), caption='Decoded Image', use_container_width=True)
+            
+            # st.image(st.session_state['original_image'], caption='Original Image', use_column_width=True)
+            # st.image(binary_to_image(decoded_message, st.session_state['original_shape']), caption='Decoded Image', use_column_width=True)
+            # st.success(f"Decoded message: {decoded_message}")
 
     # Reset functionality
     if st.button("Start Over"):

@@ -121,13 +121,21 @@ class ReedMuller:
         return (chunks, appended_bits)
 
     def encode(self):
+        start_time = time.time()
         # Encode the message using the generator matrix
+        if len(self.message) > 16*16*3*8:
+            print("Message too large, using sequential encoding")
+            encoded = self.encode_sequentially(self.message)
+            end_time = time.time()
+            print(f"Time taken to encode: {end_time - start_time}")
+            return encoded
         chunks = ReedMuller.split_message_for_encoding(self.message, self.m)
         print((len(chunks), len(chunks[0])))
         start_time = time.time()
         generator = self.generator_matrix(self.r, self.m)
         end_time = time.time()
         print(f"Time taken to generate matrix: {end_time - start_time}")
+        
         encoded_message = []
         # with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         #     futures = {executor.submit(Utility.vector_by_matrix_mod2, chunk, generator): i for i, chunk in enumerate(chunks)}
@@ -144,6 +152,34 @@ class ReedMuller:
         self.noisy_message = self.encoded_message
         return self.encoded_message
 
+    def encode_sequentially(self, message):
+        chunks = self.split_into_16x16_chunks_for_encoding(message)
+        encoded_message = []
+        generator = self.generator_matrix(self.r, self.m)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(self.encode_big_chunk, chunk, generator): i for i, chunk in enumerate(chunks)}
+            results = [None] * len(chunks)
+            for future in concurrent.futures.as_completed(futures):
+                index = futures[future]
+                results[index] = future.result()
+            for result in results:
+                if result is not None:
+                    encoded_message.extend(result)
+        self.noisy_message = encoded_message
+        self.encoded_message = encoded_message
+        return encoded_message
+    
+    def encode_big_chunk(self, chunk, generator):
+        chunks = ReedMuller.split_message_for_encoding(chunk, self.m)
+        encoded_message = []
+        # start_time = time.time()
+        for chunk in chunks:
+            encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
+        # end_time = time.time()
+        # print(f"Time taken to encode big chunk: {end_time - start_time}")
+        return encoded_message
+
     def apply_noise(self, noise_type, noise_amount):
         # Apply noise to the encoded message
         self.noisy_message, self.mistake_positions = NoiseApplicator.apply_noise(self.encoded_message, noise_type, noise_amount)
@@ -154,9 +190,9 @@ class ReedMuller:
         if len(self.noisy_message) == 0:
             raise ValueError("No noisy message to decode")
         
-        if len(self.noisy_message) > 20000:
+        if len(self.noisy_message) > 16*16*3*8*3:
             print("Message too large, using sequential decoding")
-            return self.decode_sequentially()
+            return self.decode_sequentially(self.noisy_message)
         chunks, self.appended_bits = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
         decoded_message = []
         # with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -207,6 +243,12 @@ class ReedMuller:
         return decoded_message
     
     def split_into_16x16_chunks(self, message):
+        chunks = []
+        for i in range(0, len(message), 16*16*3*8*3):
+            chunks.append(message[i:i + 16*16*3*8*3])
+        return chunks
+    
+    def split_into_16x16_chunks_for_encoding(self, message):
         chunks = []
         for i in range(0, len(message), 16*16*3*8):
             chunks.append(message[i:i + 16*16*3*8])

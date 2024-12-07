@@ -120,7 +120,8 @@ class Utility:
     @staticmethod
     def flip_bit(noisy_message_in_bits: str, index: int) -> str:
         # Flip the bit at the specified index
-        return noisy_message_in_bits[:index] + str(int(not int(noisy_message_in_bits[index]))) + noisy_message_in_bits[index + 1:]
+        noisy_message_in_bits[index] = 1 - noisy_message_in_bits[index]
+        return noisy_message_in_bits
     
     @staticmethod
     def np_bit_array_to_str(bits):
