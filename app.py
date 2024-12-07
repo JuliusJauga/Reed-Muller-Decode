@@ -108,18 +108,23 @@ def main():
         uploaded_file = st.file_uploader("Upload an image", type=["bmp"])
         st.session_state['uploaded_file'] = uploaded_file
         if uploaded_file is not None:
-
             image = Image.open(uploaded_file)
             st.session_state['original_image'] = image
             st.image(image, caption='Uploaded Image', use_column_width=True)
             image = np.array(image)
-            gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            _, binary_image = cv2.threshold(gray_image, 128, 255, cv2.THRESH_BINARY)
+            
+            # Convert image to binary without losing color
+            binary_image = np.zeros_like(image)
+            for i in range(3):  # Assuming RGB image
+                _, binary_image[:, :, i] = cv2.threshold(image[:, :, i], 128, 255, cv2.THRESH_BINARY)
+            
+            # Flatten and pack bits for encoding
             message = np.packbits(binary_image.flatten())
             unpacked_message = np.unpackbits(message)
             unpacked_bit_list = unpacked_message.tolist()
-            message = unpacked_bit_list
-            print(unpacked_bit_list)
+            message = ''.join(map(str, unpacked_bit_list))
+
+            # print(unpacked_bit_list)
     m_value = st.number_input("Enter the value of m:", min_value=1, max_value=100, value=3)
 
     if st.button("Encode") and message and m_value:
@@ -283,10 +288,14 @@ def main():
                 end_time = time.time()
             elapsed_time = end_time - start_time
             st.write(f"Decoding took {elapsed_time:.2f} seconds")
-            print(decoded_message)
-            decoded_image = np.reshape(decoded_message, st.session_state['original_image'].size[::-1])
+            # print(decoded_message)
+            decoded_message = np.array(decoded_message)
+            decoded_message = np.packbits(decoded_message).astype(np.uint8)
+            decoded_image = np.reshape(decoded_message, (*st.session_state['original_image'].size[::-1], 3))
+            decoded_image = cv2.cvtColor(decoded_image, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
             st.image(decoded_image, caption='Decoded Image', use_column_width=True)
             st.image(st.session_state['original_image'], caption='Original Image', use_column_width=True)
+            st.success(f"Decoded message: {decoded_message}")
 
     # Reset functionality
     if st.button("Start Over"):

@@ -31,15 +31,19 @@ class HadamardTransform(IDecoder):
         #     f"Decoding message: {message}"
         # )
         message = self.fast_hadamard_transform(message)
+        # print(f"Mesage after fast hadamard: {message}")
         # print(
         #     f"After fast hadamard message: {message}"
         # )
         position, sign = self.find_largest_component_position(message)
+        # print(f"Position: {position}, sign: {sign}")
+
         # print(
         #     f"Position: {position}, Sign: {sign}"
         # )
         try:
             position_in_bits = HadamardTransform.int_to_unpacked_bit_list(position, self.m)
+            # print(f"Position in bits: {position_in_bits}")
         except Exception as e:
             # print(
             #     f"Error: {e}"
@@ -51,7 +55,11 @@ class HadamardTransform(IDecoder):
         #     f"Position in bits: {position_in_bits}"
         # )
         position_in_bits = HadamardTransform.reverse_bit_list(position_in_bits)
+        
+
         position_reversed = position_in_bits
+        # print(f"Position reversed1: {position_reversed}")
+
         while len(position_reversed) < self.m + 1:
             position_reversed.append(0)
         # position_reversed = ''.join(map(str, position_reversed)).ljust(self.m+1, '0')
@@ -59,6 +67,7 @@ class HadamardTransform(IDecoder):
             position_reversed = [1] + position_reversed[:-1]
         else:
             position_reversed = [0] + position_reversed[:-1]
+        # print(f"Position reversed2: {position_reversed}")
         return position_reversed
     
     @staticmethod
@@ -73,16 +82,28 @@ class HadamardTransform(IDecoder):
             length = n.bit_length()
         if n == 0:
             return np.zeros(length, dtype=np.uint8).tolist()
-        bit_list = np.unpackbits(np.array([n], dtype=np.uint8))
-        bit_list = bit_list.tolist()
-        while bit_list[0] == 0:
-            bit_list = bit_list[1:]
-        return bit_list
+        
+        bit_list = []
+        while n > 0:
+            bit_list.insert(0, n % 2)
+            n = n // 2
+        
+        
+    # Ensure the bit_list length is a multiple of 8 for packing
+        # while len(bit_list) % 8 != 0:
+            # bit_list.insert(0, 0)  # Pad with leading zeros
+
+        # Convert to numpy array and pack the bits
+        bit_array = np.array(bit_list, dtype=np.uint8)
+
+        return bit_array
 
     @staticmethod
     def reverse_bit_list(bit_list):
-        bit_list.reverse()
-        return bit_list
+        new_bit_list = []
+        for bit in reversed(bit_list):
+            new_bit_list.append(bit)
+        return new_bit_list
     
     def find_largest_component_position(self, vector):
         max_value = abs(vector[0])

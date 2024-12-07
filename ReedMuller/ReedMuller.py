@@ -132,7 +132,6 @@ class ReedMuller:
                     encoded_message.extend(result)
         self.encoded_message = encoded_message
         self.noisy_message = self.encoded_message
-        print(self.encoded_message)
         return self.encoded_message
 
     def apply_noise(self, noise_type, noise_amount):
@@ -152,7 +151,7 @@ class ReedMuller:
                 results[index] = future.result()
             for result in results:
                 if result is not None:
-                    print(result)
+                    # print(result)
                     decoded_message.extend(result)
         if self.appended_bits > 0:
             decoded_message = decoded_message[:-self.appended_bits]
