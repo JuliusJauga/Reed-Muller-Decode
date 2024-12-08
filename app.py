@@ -4,10 +4,8 @@ from ReedMuller import HadamardTransform
 from ReedMuller import NoiseEnum
 from ReedMuller import Utility
 import time
-import cv2
 import numpy as np
 from PIL import Image
-import multiprocessing
 
 
 
@@ -142,35 +140,6 @@ def main():
             # Convert image to binary
             message, orig_shape = image_to_binary(image)
             st.session_state['original_shape'] = orig_shape  # Save original shape
-            # Display binary image
-            # st.image(binary_to_image(message, orig_shape), caption='Binary Image', use_column_width=True)
-            
-            
-            # image = np.array(image)
-            
-            # start_time = time.time()
-            # # Convert image to binary without losing color
-            # binary_image = np.zeros_like(image)
-            # for i in range(3):  # Assuming RGB image
-                # _, binary_image[:, :, i] = cv2.threshold(image[:, :, i], 128, 255, cv2.THRESH_BINARY)
-            
-            # end_time = time.time()
-            # print(f"Converting image to binary took {end_time - start_time:.2f} seconds")
-            # # Flatten and pack bits for encoding
-            # message = binary_image.flatten()
-
-            # message = np.packbits(message).astype(np.uint8)
-            # st.image(binary_to_image(message, image.shape), caption='Binary Image', use_column_width=True)
-            
-            
-            
-            # print(message)
-            # message = np.packbits(binary_image.flatten())
-            # unpacked_message = np.unpackbits(message)
-            # unpacked_bit_list = unpacked_message.tolist()
-            # message = ''.join(map(str, unpacked_bit_list))
-
-            # print(unpacked_bit_list)
     m_value = st.number_input("Enter the value of m:", min_value=1, max_value=100, value=3)
 
     if st.button("Encode") and m_value:
@@ -179,13 +148,6 @@ def main():
         with st.spinner('Encoding...'):
             start_time = time.time()
             try:
-                # pool = multiprocessing.Pool()
-                # encoded_bits = pool.apply_async(encode_message, args=(message, st.session_state['coder'])).get()
-                # pool.close()
-                # pool.join()
-                # with multiprocessing.Pool() as pool:
-                #     encoded_bits = pool.apply(encode_message, args=(message, st.session_state['coder']))
-                
                 encoded_bits = encode_message(message, st.session_state['coder'])
             except ValueError as e:
                 st.error(f"Error: {e}")
@@ -284,7 +246,6 @@ def main():
             st.session_state['decoded_message'] = decoded_message
             st.session_state['decoded_string'] = Utility.np_bit_array_to_str(np.array(decoded_message))
             st.success(f"Decoded message: {decoded_message}\n\n\nDecoded string: {st.session_state['decoded_string']}")
-            # st.success(f"Decoded message: {decoded_message}")
         else:
             with st.spinner('Decoding...'):
                 start_time = time.time()
@@ -292,22 +253,12 @@ def main():
                 end_time = time.time()
             elapsed_time = end_time - start_time
             st.write(f"Decoding took {elapsed_time:.2f} seconds")
-            # print(decoded_message)
             decoded_message = np.array(decoded_message)
-            # decoded_message = np.packbits(decoded_message).astype(np.uint8)
-            # decoded_image = np.reshape(decoded_message, (*st.session_state['original_image'].size[::-1], 3))
-            # decoded_image = cv2.cvtColor(decoded_image, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
-            # st.image(decoded_image, caption='Decoded Image', use_column_width=True)
             col1, col2 = st.columns([2, 2])
             with col1:
                 st.image(st.session_state['original_image'], caption='Original Image', use_container_width=True)
             with col2:
-                # st.image(st.session_state['original_image'], caption='Original Image', use_container_width=True)
                 st.image(binary_to_image(decoded_message, st.session_state['original_shape']), caption='Decoded Image', use_container_width=True)
-            
-            # st.image(st.session_state['original_image'], caption='Original Image', use_column_width=True)
-            # st.image(binary_to_image(decoded_message, st.session_state['original_shape']), caption='Decoded Image', use_column_width=True)
-            # st.success(f"Decoded message: {decoded_message}")
 
     # Reset functionality
     if st.button("Start Over"):

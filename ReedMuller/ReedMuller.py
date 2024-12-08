@@ -2,9 +2,7 @@ from typing import Any
 from .Utility import Utility
 from .IDecoder import IDecoder
 from .NoiseApplicator import NoiseApplicator
-from .NoiseEnum import NoiseEnum
 import numpy as np
-import concurrent.futures
 import time
 from multiprocessing import shared_memory
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -157,19 +155,11 @@ class ReedMuller:
         print(f"Time taken to generate matrix: {end_time - start_time}")
         
         encoded_message = []
-        # with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        #     futures = {executor.submit(Utility.vector_by_matrix_mod2, chunk, generator): i for i, chunk in enumerate(chunks)}
-        #     results = [None] * len(chunks)
-        #     for future in concurrent.futures.as_completed(futures):
-        #         index = futures[future]
-        #         results[index] = future.result()
-        #     for result in results:
-        #         if result is not None:
-        #             encoded_message.extend(result)
         for chunk in chunks:
             encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
         self.encoded_message = encoded_message
         self.noisy_message = self.encoded_message
+        chunks.clear()
         return self.encoded_message
 
     def encode_sequentially(self, message):
@@ -200,6 +190,7 @@ class ReedMuller:
         finally:
             shared_mem.close()
             shared_mem.unlink()
+            chunks.clear()
 
         self.noisy_message = encoded_message
         self.encoded_message = encoded_message
@@ -219,11 +210,8 @@ class ReedMuller:
     def encode_big_chunk(self, chunk, generator):
         chunks = ReedMuller.split_message_for_encoding(chunk, self.m)
         encoded_message = []
-        # start_time = time.time()
         for chunk in chunks:
             encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
-        # end_time = time.time()
-        # print(f"Time taken to encode big chunk: {end_time - start_time}")
         return encoded_message
 
     def apply_noise(self, noise_type, noise_amount):
@@ -245,6 +233,7 @@ class ReedMuller:
             decoded_message.extend(self.decoder.decode(chunk))
         if self.appended_bits > 0:
             decoded_message = decoded_message[:-self.appended_bits]
+        chunks.clear()
         return decoded_message
 
     def decode_rgb(self):
@@ -288,8 +277,10 @@ class ReedMuller:
             # Clean up shared memory
             shared_mem.close()
             shared_mem.unlink()
-
-        return decoded_message
+            ranges.clear()
+        
+        self.decoded_message = decoded_message
+        return self.decoded_message
     
     def decode_big_chunk(self, chunk):
         """Decode a chunk of the message."""
