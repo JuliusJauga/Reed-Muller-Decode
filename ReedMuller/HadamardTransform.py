@@ -15,11 +15,16 @@ class HadamardTransform(IDecoder):
         return H_i_m
 
     def fast_hadamard_transform(self, message):
+        print(f"Fast Hadamard transform for message: {message}")
         vector = self.convert_to_pm1(message)
         for i in range(self.m + 1):
             if i == 0:
                 continue
             H_i_m = self.generate_H_i_m(i)
+            print(f"Hadamard matrix for i = {i}")
+            for row in H_i_m:
+                print(row)
+            print (f"Vector before: {vector}")
             vector = Utility.vector_by_matrix(vector, H_i_m)
         return vector
     
@@ -27,6 +32,7 @@ class HadamardTransform(IDecoder):
         return [1 if bit == 1 else -1 for bit in message]
     
     def decode(self, message):
+        print(f"Decoding message: {message}")
         message = self.fast_hadamard_transform(message)
         position, sign = self.find_largest_component_position(message)
         try:

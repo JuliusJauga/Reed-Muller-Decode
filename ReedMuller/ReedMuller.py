@@ -50,6 +50,8 @@ class ReedMuller:
             packed_message = np.packbits(binary_image.flatten())
             unpacked_message = np.unpackbits(packed_message)
             self.message = unpacked_message.tolist()
+            print("MESSAGE IN BITS")
+            print(self.message)
         elif all(bit in [0, 1] for bit in message):
             self.message = message
         else:
@@ -153,11 +155,14 @@ class ReedMuller:
         generator = self.generator_matrix(self.r, self.m)
         end_time = time.time()
         print(f"Time taken to generate matrix: {end_time - start_time}")
-        
+        print(f"Generator matrix:\n{np.array(generator)}")
+
         encoded_message = []
         for chunk in chunks:
+            print(chunk)
             encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
         self.encoded_message = encoded_message
+        print(f"Encoded message: {encoded_message}")
         self.noisy_message = self.encoded_message
         chunks.clear()
         return self.encoded_message
