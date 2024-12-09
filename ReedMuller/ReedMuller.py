@@ -21,6 +21,16 @@ def decode_worker(start, end, shm_name, shape, dtype, m, decoder):
         decoded_message = decoded_message[:-appended_bits]
     return decoded_message
 
+def encode_worker(start, end, generator, shm_name, shape, dtype, m):
+    shm = shared_memory.SharedMemory(name=shm_name)
+    shared_data = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
+    chunk = shared_data[start:end].tolist()
+    chunks = ReedMuller.split_message_for_encoding(chunk, m)
+    encoded_message = []
+    for chunk in chunks:
+        encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
+    return encoded_message
+
 
 
 
@@ -136,7 +146,10 @@ class ReedMuller:
         for i in range(0, len(message), m):
             chunks.append(message[i:i + m])
         while len(chunks[-1]) < m:
+            if isinstance(chunks[-1], np.ndarray):
+                chunks[-1] = chunks[-1].tolist()
             chunks[-1].append(0)
+            appended_bits += 1
             appended_bits += 1
         return (chunks, appended_bits)
 
@@ -155,20 +168,16 @@ class ReedMuller:
         generator = self.generator_matrix(self.r, self.m)
         end_time = time.time()
         print(f"Time taken to generate matrix: {end_time - start_time}")
-        print(f"Generator matrix:\n{np.array(generator)}")
 
         encoded_message = []
         for chunk in chunks:
-            print(chunk)
             encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
         self.encoded_message = encoded_message
-        print(f"Encoded message: {encoded_message}")
         self.noisy_message = self.encoded_message
         chunks.clear()
         return self.encoded_message
 
     def encode_sequentially(self, message):
-        chunks = self.split_into_16x16_chunks_for_encoding(message)
         encoded_message = []
         generator = self.generator_matrix(self.r, self.m)
 
@@ -178,13 +187,15 @@ class ReedMuller:
         np.copyto(shared_array, flat_message)
 
         try:
+            chunk_size = 4*5*6*7*8
+            ranges = [(i, min(i + chunk_size, len(flat_message))) for i in range(0, len(flat_message), chunk_size)]
+
             with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
                 futures = {
-                    executor.submit(ReedMuller.encode_worker, chunk, generator, shared_mem.name, flat_message.shape, flat_message.dtype, self.m): i
-                    for i, chunk in enumerate(chunks)
+                    executor.submit(encode_worker, start, end, generator, shared_mem.name, flat_message.shape, flat_message.dtype, self.m): i
+                    for i, (start, end) in enumerate(ranges)
                 }
-
-                results = [None] * len(chunks)
+                results = [None] * len(ranges)
                 for future in as_completed(futures):
                     index = futures[future]
                     results[index] = future.result()
@@ -195,30 +206,12 @@ class ReedMuller:
         finally:
             shared_mem.close()
             shared_mem.unlink()
-            chunks.clear()
+            ranges.clear()
 
         self.noisy_message = encoded_message
         self.encoded_message = encoded_message
         return encoded_message
     
-    @staticmethod
-    def encode_worker(chunk, generator, shm_name, shape, dtype, m):
-        shm = shared_memory.SharedMemory(name=shm_name)
-        shared_data = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
-        chunk = shared_data[chunk].tolist()
-        chunks = ReedMuller.split_message_for_encoding(chunk, m)
-        encoded_message = []
-        for chunk in chunks:
-            encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
-        return encoded_message
-    
-    def encode_big_chunk(self, chunk, generator):
-        chunks = ReedMuller.split_message_for_encoding(chunk, self.m)
-        encoded_message = []
-        for chunk in chunks:
-            encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
-        return encoded_message
-
     def apply_noise(self, noise_type, noise_amount):
         # Apply noise to the encoded message
         self.noisy_message, self.mistake_positions = NoiseApplicator.apply_noise(self.encoded_message, noise_type, noise_amount)
@@ -229,7 +222,7 @@ class ReedMuller:
         if len(self.noisy_message) == 0:
             raise ValueError("No noisy message to decode")
         
-        if len(self.noisy_message) > 16*16*3*8*3:
+        if len(self.noisy_message) > os.cpu_count() * 16 * 16 * 3 * 8:
             print("Message too large, using sequential decoding")
             return self.decode_sequentially(self.noisy_message)
         chunks, self.appended_bits = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
@@ -241,14 +234,6 @@ class ReedMuller:
         chunks.clear()
         return decoded_message
 
-    def decode_rgb(self):
-        chunks = self.split_into_16x16_chunks(self.noisy_message)
-        decoded_message = []
-        for chunk in chunks:
-            decoded_message.extend(self.decode_big_chunk(chunk))
-        return decoded_message
-
-
     def decode_sequentially(self, message):
         """Decode a message using shared memory and concurrent processing."""
         # Create a flat NumPy array from the message
@@ -259,7 +244,8 @@ class ReedMuller:
 
         try:
             # Split the message into chunk ranges
-            chunk_size = 16 * 16 * 3 * 8 * int((2**self.m) / (self.m + 1))
+            num_chunks = os.cpu_count() * 2  # Aim for twice the number of CPU cores
+            chunk_size = max(1, len(flat_message) // num_chunks)
             ranges = [(i, min(i + chunk_size, len(flat_message))) for i in range(0, len(flat_message), chunk_size)]
 
             # Process chunks in parallel
@@ -286,29 +272,5 @@ class ReedMuller:
         
         self.decoded_message = decoded_message
         return self.decoded_message
-    
-    def decode_big_chunk(self, chunk):
-        """Decode a chunk of the message."""
-        chunks, appended_bits = ReedMuller.split_message_for_decoding(chunk, 2**self.m)
-        decoded_message = []
-        for chunk in chunks:
-            decoded_message.extend(self.decoder.decode(chunk))
-        if appended_bits > 0:
-            decoded_message = decoded_message[:-appended_bits]
-        return decoded_message
-    
-    def split_into_16x16_chunks(self, message):
-        chunks = []
-        for i in range(0, len(message), 16*16*3*8*int((2**self.m)/(self.m+1))):
-            chunks.append(message[i:i + 16*16*3*8*int((2**self.m)/(self.m+1))])
-        return chunks
-    
-    def split_into_16x16_chunks_for_encoding(self, message):
-        chunks = []
-        for i in range(0, len(message), 16*16*3*8):
-            chunks.append(message[i:i + 16*16*3*8])
-        return chunks
-    
-
     
     

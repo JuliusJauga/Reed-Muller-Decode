@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 // #include <opencv2/opencv.hpp>
+#include <chrono>
 
 int r = 1;
 int appendedBits = 0;
@@ -86,13 +87,6 @@ std::vector<std::vector<bool>> splitVectorForEncoding(std::vector<bool> bits, in
         }
         chunks.push_back(chunk);
     }
-    std::cout << "Chunks: " << std::endl;
-    for (const auto& chunk : chunks) {
-        for (bool bit : chunk) {
-            std::cout << bit;
-        }
-        std::cout << std::endl;
-    }
     return chunks;
 }
 
@@ -122,13 +116,6 @@ std::vector<bool> vectorByMatrixMod2(const std::vector<bool>& vector, const std:
 
 std::vector<bool> encode(std::vector<bool> bits, int r, int m) {
     std::vector<std::vector<bool>> matrix = generatorMatrix(r, m);
-    std::cout << "Generator Matrix:" << std::endl;
-    for (const auto& row : matrix) {
-        for (bool bit : row) {
-            std::cout << bit;
-        }
-        std::cout << std::endl;
-    }
     std::vector<std::vector<bool>> chunks = splitVectorForEncoding(bits, r, m);
 
     std::vector<bool> encoded;
@@ -323,7 +310,7 @@ int main() {
     std::cout << "Hello, World!" << std::endl;
     std::string input;
     std::cout << "Enter some input: ";
-    std::cin >> input;
+    std::getline(std::cin, input);
     std::cout << "You entered: " << input << std::endl;
     std::vector<bool> bits = stringToBoolVector(input);
     std::cout << "Bits: ";
@@ -332,21 +319,32 @@ int main() {
     }
     std::string output = boolVectorToString(bits);
     std::cout << "\nConverted back to string: " << output;
-    std::cout << std::endl;
+    
+    bits.clear();
+    for (int i = 0; i < 1000000; i++) {
+        bits.push_back(rand() % 2);
+    }
+    auto start = std::chrono::high_resolution_clock::now();
     std::vector<bool> encodedBits = encode(bits, r, 3);
-
-    std::cout << "Encoded bits: ";
-    for (bool bit : encodedBits) {
-        std::cout << bit;
-    }
+    auto end = std::chrono::high_resolution_clock::now();
+    
+    std::chrono::duration<double> elapsed = end - start;
+    std::cout << "Encoding complete" << std::endl;
+    std::cout << "Time taken to encode: " << elapsed.count() << " seconds" << std::endl;
+    // std::cout << "Encoded bits: ";
+    // for (bool bit : encodedBits) {
+        // std::cout << bit;
+    // }
+    auto start2 = std::chrono::high_resolution_clock::now();
     std::vector<bool> decodedBits = decodeChunks(encodedBits, r, 3);
+    auto end2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed2 = end2 - start2;
+    std::cout << "Decoding complete" << std::endl;
+    std::cout << "Time taken to decode: " << elapsed2.count() << " seconds" << std::endl;
+    // std::cout << "\nDecoded bits: ";
+    // for (bool bit : decodedBits) {
+        // std::cout << bit;
+    // }
 
-    std::cout << "\nDecoded bits: ";
-    for (bool bit : decodedBits) {
-        std::cout << bit;
-    }
-
-    std::string decodedString = boolVectorToString(decodedBits);
-    std::cout << "\nDecoded string: " << decodedString << std::endl;
 
 }

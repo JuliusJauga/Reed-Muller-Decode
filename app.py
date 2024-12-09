@@ -22,8 +22,19 @@ def image_to_binary(image):
 def binary_to_image(binary_array, shape):
     # Reshape and convert binary back to uint8
     byte_array = np.packbits(binary_array)
-    img_array = byte_array.reshape(shape)
+    # Calculate the number of bytes needed to match the original shape
+    num_bytes = np.prod(shape)
+    print(f"Num bytes: {num_bytes}")
+    print(f"Byte array length: {len(byte_array)}")
+    # Ensure the byte array has the correct size before reshaping
+    if len(byte_array) < num_bytes:
+        byte_array = np.pad(byte_array, (0, num_bytes - len(byte_array)), 'constant', constant_values=0)
+    if len(byte_array) > num_bytes:
+        byte_array = byte_array[:num_bytes]
+    # Reshape the byte array to match the original shape
+    print(f"Byte array length after padding: {len(byte_array)}")
 
+    img_array = byte_array.reshape(shape)
     # Convert back to a PIL image
     return Image.fromarray(img_array, mode='RGB')
 
@@ -139,6 +150,7 @@ def main():
             
             # Convert image to binary
             message, orig_shape = image_to_binary(image)
+            st.image(binary_to_image(message, orig_shape), caption='Converted Image', use_container_width=True)
             st.session_state['original_shape'] = orig_shape  # Save original shape
     m_value = st.number_input("Enter the value of m:", min_value=1, max_value=100, value=3)
 
@@ -154,6 +166,8 @@ def main():
             end_time = time.time()
         elapsed_time = end_time - start_time
         st.write(f"Encoding took {elapsed_time:.2f} seconds")
+        st.write(f"Original message length: {len(message)} bits")
+        st.write(f"Encoded message length: {len(encoded_bits)} bits")
         st.session_state['original_bits'] = encoded_bits  # Save original bits
         st.session_state['encoded_bits'] = encoded_bits  # Save modifiable bits
         st.session_state['decoded_message'] = None  # Reset decoded message
