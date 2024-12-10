@@ -159,22 +159,20 @@ std::vector<std::vector<int>> generateUnitaryMatrix(int n) {
     return matrix;
 }
 
-std::vector<std::vector<int>> generateKroneckerProduct(const std::vector<std::vector<int>>& A, const std::vector<std::vector<int>>& B) {
-    size_t aRows = A.size();
-    size_t aCols = A[0].size();
-    size_t bRows = B.size();
-    size_t bCols = B[0].size();
-
+// Flattened Kronecker product function
+std::vector<int> generateKroneckerProductFlat(const std::vector<int>& A, size_t aRows, size_t aCols,
+                                              const std::vector<int>& B, size_t bRows, size_t bCols) {
     size_t resultRows = aRows * bRows;
     size_t resultCols = aCols * bCols;
-
-    std::vector<std::vector<int>> result(resultRows, std::vector<int>(resultCols, 0));
+    std::vector<int> result(resultRows * resultCols, 0);
 
     for (size_t i = 0; i < aRows; ++i) {
         for (size_t j = 0; j < aCols; ++j) {
             for (size_t k = 0; k < bRows; ++k) {
                 for (size_t l = 0; l < bCols; ++l) {
-                    result[i * bRows + k][j * bCols + l] = A[i][j] * B[k][l];
+                    size_t row = i * bRows + k;
+                    size_t col = j * bCols + l;
+                    result[row * resultCols + col] = A[i * aCols + j] * B[k * bCols + l];
                 }
             }
         }
@@ -182,13 +180,30 @@ std::vector<std::vector<int>> generateKroneckerProduct(const std::vector<std::ve
 
     return result;
 }
+int getElement(const std::vector<int>& matrix, size_t row, size_t col, size_t cols) {
+    return matrix[row * cols + col];
+}
 
-std::vector<std::vector<int>> generateHiM(int i, int m) {
-    std::vector<std::vector<int>> I1 = generateUnitaryMatrix(1 << (m - i));
-    std::vector<std::vector<int>> H = {{1, 1}, {1, -1}};
-    std::vector<std::vector<int>> HiM = generateKroneckerProduct(I1, H);
-    std::vector<std::vector<int>> I2 = generateUnitaryMatrix(1 << (i - 1));
-    HiM = generateKroneckerProduct(HiM, I2);
+// Generate unitary matrix (flattened)
+std::vector<int> generateUnitaryMatrixFlat(size_t n) {
+    std::vector<int> unitaryMatrix(n * n, 0);
+    for (size_t i = 0; i < n; ++i) {
+        unitaryMatrix[i * n + i] = 1; // Diagonal elements are 1
+    }
+    return unitaryMatrix;
+}
+
+// generateHiM function with 1D approach
+std::vector<int> generateHiMFlat(int i, int m) {
+    size_t size1 = 1 << (m - i);
+    size_t size2 = 1 << (i - 1);
+
+    std::vector<int> I1 = generateUnitaryMatrixFlat(size1);
+    std::vector<int> H = {1, 1, 1, -1}; // 2x2 Hadamard matrix (flattened)
+    std::vector<int> HiM = generateKroneckerProductFlat(I1, size1, size1, H, 2, 2);
+    std::vector<int> I2 = generateUnitaryMatrixFlat(size2);
+    HiM = generateKroneckerProductFlat(HiM, size1 * 2, size1 * 2, I2, size2, size2);
+
     return HiM;
 }
 
@@ -235,29 +250,43 @@ std::vector<int> dotProduct(std::vector<int> v1 , std::vector<int> v2) {
     return result;
 }
 
-std::vector<int> vectorByMatrix(const std::vector<int> vector, const std::vector<std::vector<int>> matrix) {
-    std::vector<int> result;
-    for (size_t i = 0; i < matrix.size(); i++) {
-        std::vector<int> row = matrix[i];
-        std::vector<int> product = dotProduct(vector, row);
-        int sum = 0;
-        for (int val : product) {
-            sum += val;
+// Perform vector-by-matrix multiplication with a flattened matrix
+std::vector<int> vectorByMatrix(const std::vector<int>& vec, const std::vector<int>& matrix, size_t rows, size_t cols) {
+    std::vector<int> result(rows, 0);
+    for (size_t i = 0; i < rows; ++i) {
+        for (size_t j = 0; j < cols; ++j) {
+            result[i] += vec[j] * matrix[i * cols + j];
         }
-        result.push_back(sum);
     }
     return result;
 }
 
-std::vector<int> fastHadamardTransform(const std::vector<bool>& message, int m) {
-    std::vector<int> vector = convertToPm1(message);
-    for (int i = 1; i < m + 1; i++) {
-        std::vector<std::vector<int>> HiM = generateHiM(i, m);
-        vector = vectorByMatrix(vector, HiM);
+// Recursive Fast Hadamard Transform
+void fastHadamardTransformRecursive(std::vector<int>& vec, size_t start, size_t end) {
+    if (end - start == 1) return; // Base case: single element
+
+    size_t mid = start + (end - start) / 2;
+    fastHadamardTransformRecursive(vec, start, mid); // Transform the first half
+    fastHadamardTransformRecursive(vec, mid, end);   // Transform the second half
+
+    for (size_t i = start; i < mid; ++i) {
+        int a = vec[i];
+        int b = vec[i + (mid - start)];
+        vec[i] = a + b;               // Combine results (sum)
+        vec[i + (mid - start)] = a - b; // Combine results (difference)
     }
-    return vector;
 }
 
+// Fast Hadamard Transform (driver)
+std::vector<int> fastHadamardTransform(const std::vector<bool>& message, int m) {
+    size_t N = 1 << m; // Length of the vector (2^m)
+    std::vector<int> vector = convertToPm1(message);
+
+    // Perform in-place recursive Hadamard Transform
+    fastHadamardTransformRecursive(vector, 0, N);
+
+    return vector;
+}
 
 
 
@@ -270,8 +299,8 @@ std::vector<bool> reverseVector(const std::vector<bool>& vector) {
 }
 
 std::vector<bool> decode(std::vector<bool> message, int r, int m) {
-    
-    std::vector<int> transformedMessage = fastHadamardTransform(message, m);
+    std::vector<int> transformedMessage;
+    transformedMessage = fastHadamardTransform(message, m);
     auto [position, sign] = findLargestComponentPosition(transformedMessage);
 
     std::vector<bool> positionInBits = intToUnpackedBitList(position);
@@ -320,12 +349,12 @@ int main() {
     std::string output = boolVectorToString(bits);
     std::cout << "\nConverted back to string: " << output;
     
-    bits.clear();
-    for (int i = 0; i < 1000000; i++) {
-        bits.push_back(rand() % 2);
-    }
+    // bits.clear();
+    // for (int i = 0; i < 1000000; i++) {
+    //     bits.push_back(rand() % 2);
+    // }
     auto start = std::chrono::high_resolution_clock::now();
-    std::vector<bool> encodedBits = encode(bits, r, 3);
+    std::vector<bool> encodedBits = encode(bits, r, 25);
     auto end = std::chrono::high_resolution_clock::now();
     
     std::chrono::duration<double> elapsed = end - start;
@@ -336,15 +365,15 @@ int main() {
         // std::cout << bit;
     // }
     auto start2 = std::chrono::high_resolution_clock::now();
-    std::vector<bool> decodedBits = decodeChunks(encodedBits, r, 3);
+    std::vector<bool> decodedBits = decodeChunks(encodedBits, r, 25);
     auto end2 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed2 = end2 - start2;
     std::cout << "Decoding complete" << std::endl;
     std::cout << "Time taken to decode: " << elapsed2.count() << " seconds" << std::endl;
-    // std::cout << "\nDecoded bits: ";
-    // for (bool bit : decodedBits) {
-        // std::cout << bit;
-    // }
-
+    std::cout << "\nDecoded bits: ";
+    for (bool bit : decodedBits) {
+        std::cout << bit;
+    }
+    std::cout << boolVectorToString(decodedBits) << std::endl;
 
 }

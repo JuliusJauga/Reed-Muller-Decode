@@ -50,7 +50,6 @@ class ReedMuller:
         
 
     def set_message(self, message):
-        start_time = time.time()
         if message is None:
             raise ValueError("Message cannot be None")
         if isinstance(message, str):
@@ -60,25 +59,31 @@ class ReedMuller:
             packed_message = np.packbits(binary_image.flatten())
             unpacked_message = np.unpackbits(packed_message)
             self.message = unpacked_message.tolist()
-            print("MESSAGE IN BITS")
-            print(self.message)
-        elif all(bit in [0, 1] for bit in message):
-            self.message = message
         else:
-            self.message = np.unpackbits(np.array(message))
-            print(self.message)
-            end_time = time.time()
-            print(f"Time taken to set message: {end_time - start_time}")
+            self.message = message
+        self.noisy_message = None
+        self.encoded_message = None
     
     def get_message(self):
-        return self.message
-    
+        try:
+            return self.message
+        except:
+            return None
     def get_encoded_message(self):
-        return self.encoded_message
-    
+        try:
+            return self.encoded_message
+        except:
+            return None
     def get_noisy_message(self):
-        return self.noisy_message
-    
+        try:
+            return self.noisy_message
+        except:
+            return None
+    def get_decoded_message(self):
+        try:
+            return self.decoded_message
+        except:
+            return None
     def get_mistake_positions(self):
         return self.mistake_positions
     
@@ -135,6 +140,7 @@ class ReedMuller:
             chunks.append(message[i:i + m])
         while len(chunks[-1]) < m:
             chunks[-1].append(0)
+            print(0)
         return chunks
 
     @staticmethod
@@ -178,18 +184,23 @@ class ReedMuller:
         return self.encoded_message
 
     def encode_sequentially(self, message):
+        chunk_size = 2*3*4*5*6*7*8
+        while chunk_size % (self.m+1) != 0:
+            chunk_size -= 1
         encoded_message = []
+        appended_bits = 0
         generator = self.generator_matrix(self.r, self.m)
-
+        length = len(message)
         flat_message = np.array(message, dtype=np.uint8)
+        if length % (self.m+1) != 0:
+            appended_bits = ((self.m+1) - (length % (self.m+1)))
+            flat_message = np.pad(flat_message, (0, appended_bits))
         shared_mem = shared_memory.SharedMemory(create=True, size=flat_message.nbytes)
         shared_array = np.ndarray(flat_message.shape, dtype=flat_message.dtype, buffer=shared_mem.buf)
         np.copyto(shared_array, flat_message)
 
         try:
-            chunk_size = 4*5*6*7*8
             ranges = [(i, min(i + chunk_size, len(flat_message))) for i in range(0, len(flat_message), chunk_size)]
-
             with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
                 futures = {
                     executor.submit(encode_worker, start, end, generator, shared_mem.name, flat_message.shape, flat_message.dtype, self.m): i
@@ -207,8 +218,11 @@ class ReedMuller:
             shared_mem.close()
             shared_mem.unlink()
             ranges.clear()
-
-        self.noisy_message = encoded_message
+        
+        print(len(encoded_message))
+        if appended_bits > 0:
+            encoded_message = encoded_message[:-appended_bits]
+        self.noisy_message = encoded_message.copy()
         self.encoded_message = encoded_message
         return encoded_message
     
@@ -237,15 +251,20 @@ class ReedMuller:
     def decode_sequentially(self, message):
         """Decode a message using shared memory and concurrent processing."""
         # Create a flat NumPy array from the message
+        chunk_size = 2*3*4*5*6*7*8
+        while chunk_size % (2**(self.m)) != 0:
+            chunk_size -= 1
         flat_message = np.array(message, dtype=np.uint8)
+        if len(flat_message) % (2**self.m) != 0:
+            self.appended_bits = ((2**self.m) - (len(flat_message) % (2**self.m)))
+            flat_message = np.pad(flat_message, (0, self.appended_bits))
         shared_mem = shared_memory.SharedMemory(create=True, size=flat_message.nbytes)
         shared_array = np.ndarray(flat_message.shape, dtype=flat_message.dtype, buffer=shared_mem.buf)
         np.copyto(shared_array, flat_message)
 
         try:
             # Split the message into chunk ranges
-            num_chunks = os.cpu_count() * 2  # Aim for twice the number of CPU cores
-            chunk_size = max(1, len(flat_message) // num_chunks)
+            chunk_size = chunk_size * os.cpu_count()
             ranges = [(i, min(i + chunk_size, len(flat_message))) for i in range(0, len(flat_message), chunk_size)]
 
             # Process chunks in parallel
@@ -270,6 +289,8 @@ class ReedMuller:
             shared_mem.unlink()
             ranges.clear()
         
+        if self.appended_bits > 0:
+            decoded_message = decoded_message[:-self.appended_bits]
         self.decoded_message = decoded_message
         return self.decoded_message
     

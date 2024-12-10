@@ -14,7 +14,7 @@ class HadamardTransform(IDecoder):
         H_i_m = Utility.generate_kronecher_product(H_i_m, I)
         return H_i_m
 
-    def fast_hadamard_transform(self, message):
+    def fast_hadamard_transform_old(self, message):
         vector = self.convert_to_pm1(message)
         for i in range(self.m + 1):
             if i == 0:
@@ -22,12 +22,13 @@ class HadamardTransform(IDecoder):
             H_i_m = self.generate_H_i_m(i)
             vector = Utility.vector_by_matrix(vector, H_i_m)
         return vector
-    
+
+
     def convert_to_pm1(self, message):
         return [1 if bit == 1 else -1 for bit in message]
     
     def decode(self, message):
-        message = self.fast_hadamard_transform(message)
+        message = self.fast_hadamard_transform(message, self.m)
         position, sign = self.find_largest_component_position(message)
         try:
             position_in_bits = HadamardTransform.int_to_unpacked_bit_list(position, self.m)
@@ -78,3 +79,38 @@ class HadamardTransform(IDecoder):
                 sign = 1 if vector[i] > 0 else -1
                 position = i
         return position, sign
+    
+
+
+
+    def fast_hadamard_transform_recursive(self, vec, start, end):
+        """
+        Perform the recursive Fast Hadamard Transform in-place.
+        """
+        if end - start == 1:  # Base case: single element
+            return
+
+        mid = start + (end - start) // 2
+        # Transform the first half
+        self.fast_hadamard_transform_recursive(vec, start, mid)
+        # Transform the second half
+        self.fast_hadamard_transform_recursive(vec, mid, end)
+
+        for i in range(start, mid):
+            a = vec[i]
+            b = vec[i + (mid - start)]
+            vec[i] = a + b  # Combine results (sum)
+            vec[i + (mid - start)] = a - b  # Combine results (difference)
+
+
+    def fast_hadamard_transform(self, message, m):
+        """
+        Perform the Fast Hadamard Transform on a boolean message of length 2^m.
+        """
+        N = 1 << m  # Length of the vector (2^m)
+        vector = self.convert_to_pm1(message)
+
+        # Perform in-place recursive Hadamard Transform
+        self.fast_hadamard_transform_recursive(vector, 0, N)
+
+        return vector
