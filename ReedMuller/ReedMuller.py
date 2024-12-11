@@ -105,6 +105,7 @@ class ReedMuller:
         for i in range(len(self.encoded_message)):
             if self.encoded_message[i] != self.noisy_message[i]:
                 self.mistake_positions.append(i)
+        return self.mistake_positions
 
     def generator_matrix(self, r, m):
         # Generate the generator matrix for a Reed-Muller code
@@ -140,7 +141,6 @@ class ReedMuller:
             chunks.append(message[i:i + m])
         while len(chunks[-1]) < m:
             chunks[-1].append(0)
-            print(0)
         return chunks
 
     @staticmethod
@@ -163,17 +163,17 @@ class ReedMuller:
         start_time = time.time()
         # Encode the message using the generator matrix
         if len(self.message) > 16*16*3*8:
-            print("Message too large, using sequential encoding")
+            # print("Message too large, using sequential encoding")
             encoded = self.encode_sequentially(self.message)
             end_time = time.time()
-            print(f"Time taken to encode: {end_time - start_time}")
+            # print(f"Time taken to encode: {end_time - start_time}")
             return encoded
         chunks = ReedMuller.split_message_for_encoding(self.message, self.m)
-        print((len(chunks), len(chunks[0])))
+        # print((len(chunks), len(chunks[0])))
         start_time = time.time()
         generator = self.generator_matrix(self.r, self.m)
         end_time = time.time()
-        print(f"Time taken to generate matrix: {end_time - start_time}")
+        # print(f"Time taken to generate matrix: {end_time - start_time}")
 
         encoded_message = []
         for chunk in chunks:
@@ -219,8 +219,9 @@ class ReedMuller:
             shared_mem.unlink()
             ranges.clear()
         
-        print(len(encoded_message))
+        # print(len(encoded_message))
         if appended_bits > 0:
+            print("BITS WERE APPENDED DURING ENCODING")
             encoded_message = encoded_message[:-appended_bits]
         self.noisy_message = encoded_message.copy()
         self.encoded_message = encoded_message
@@ -237,7 +238,7 @@ class ReedMuller:
             raise ValueError("No noisy message to decode")
         
         if len(self.noisy_message) > os.cpu_count() * 16 * 16 * 3 * 8:
-            print("Message too large, using sequential decoding")
+            # print("Message too large, using sequential decoding")
             return self.decode_sequentially(self.noisy_message)
         chunks, self.appended_bits = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
         decoded_message = []
@@ -251,7 +252,7 @@ class ReedMuller:
     def decode_sequentially(self, message):
         """Decode a message using shared memory and concurrent processing."""
         # Create a flat NumPy array from the message
-        chunk_size = 2*3*4*5*6*7*8
+        chunk_size = 2**self.m
         while chunk_size % (2**(self.m)) != 0:
             chunk_size -= 1
         flat_message = np.array(message, dtype=np.uint8)
@@ -290,6 +291,8 @@ class ReedMuller:
             ranges.clear()
         
         if self.appended_bits > 0:
+            print("BITS WERE APPENDED DURING DECODING")
+
             decoded_message = decoded_message[:-self.appended_bits]
         self.decoded_message = decoded_message
         return self.decoded_message

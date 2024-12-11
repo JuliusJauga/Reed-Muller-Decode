@@ -114,12 +114,15 @@ class Utility:
     @staticmethod
     def np_bit_array_to_str(bits):
         # Reshape the bit array into bytes (8 bits per byte)
-        while True:
-            try:
-                bytes_array = bits.reshape(-1, 8)
-                break
-            except:
-                bits = bits[:-1]
+        while bits.size % 8 != 0:
+            bits = bits[:-1]
+        bytes_array = bits.reshape(-1, 8)
+
+        # Drop the last byte if it is all zeros
+        while np.all(bytes_array[-1] == 0):
+            if np.all(bytes_array[-1] == 0):
+                bytes_array = bytes_array[:-1]
+
         # Convert each byte to an integer
         byte_values = np.packbits(bytes_array, axis=1).flatten()
 

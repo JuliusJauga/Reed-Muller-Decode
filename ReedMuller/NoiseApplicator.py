@@ -55,7 +55,7 @@ class NoiseApplicator:
 
         return noisy_message, mistake_positions
     def apply_noise_sequentially(message, noise_amount, easing_function):
-        print("Applying noise sequentially")
+        # print("Applying noise sequentially")
         if not 0 <= noise_amount <= 1:
             raise ValueError("Noise amount must be between 0 and 1")
 
