@@ -1,3 +1,7 @@
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image.h"
+#include "stb_image_write.h"
 #include <iostream>
 #include <vector>
 // #include <opencv2/opencv.hpp>
@@ -5,20 +9,6 @@
 
 int r = 1;
 int appendedBits = 0;
-// std::pair<std::vector<bool>, std::pair<int, int>> imageToBits(const cv::Mat& image) {
-//     std::vector<bool> bits;
-//     for (int i = 0; i < image.rows; i++) {
-//         for (int j = 0; j < image.cols; j++) {
-//             cv::Vec3b pixel = image.at<cv::Vec3b>(i, j);
-//             for (int k = 0; k < 3; k++) {
-//                 for (int l = 0; l < 8; l++) {
-//                     bits.push_back((pixel[k] >> l) & 1);
-//                 }
-//             }
-//         }
-//     }
-//     return {bits, {image.rows, image.cols}};
-// }
 
 std::vector<bool> stringToBoolVector(std::string input) {
     std::vector<bool> bits;
@@ -324,8 +314,14 @@ std::vector<bool> decode(std::vector<bool> message, int r, int m) {
 std::vector<bool> decodeChunks(std::vector<bool> message, int r, int m) {
     std::vector<bool> decoded;
     std::vector<std::vector<bool>> chunks = splitMessageForDecoding(message, 1 << m, appendedBits);
-    for (const auto& chunk : chunks) {
-        std::vector<bool> decodedChunk = decode(chunk, r, m);
+    std::vector<std::vector<bool>> decodedChunks(chunks.size());
+
+    #pragma omp parallel for
+    for (int i = 0; i < chunks.size(); ++i) {
+        decodedChunks[i] = decode(chunks[i], r, m);
+    }
+
+    for (const auto& decodedChunk : decodedChunks) {
         decoded.insert(decoded.end(), decodedChunk.begin(), decodedChunk.end());
     }
 
@@ -333,6 +329,94 @@ std::vector<bool> decodeChunks(std::vector<bool> message, int r, int m) {
 }
 
 
+void runPicture(int m, std::string filename, float q) {
+    // Read BMP file
+    int width, height, channels;
+    std::string inputFilePath = filename;
+    unsigned char* pixelData = stbi_load(inputFilePath.c_str(), &width, &height, &channels, 0);
+    if (!pixelData) {
+        std::cerr << "Error: Unable to open file " << filename << std::endl;
+        return;
+    }
+
+    // Print out image width and height
+    std::cout << "Image Width: " << width << std::endl;
+    std::cout << "Image Height: " << height << std::endl;
+
+    // Create the output filename by appending "_copy" before the file extension
+    std::string outputFilename = filename;
+    size_t dotPos = outputFilename.find_last_of(".");
+    if (dotPos != std::string::npos) {
+        outputFilename.insert(dotPos, "_copy");
+    } else {
+        outputFilename += "_copy";
+    }
+    std::string outputFilePath = outputFilename;
+
+    // Write the BMP file
+    if (!stbi_write_bmp(outputFilePath.c_str(), width, height, channels, pixelData)) {
+        std::cerr << "Error: Unable to create output file" << std::endl;
+        stbi_image_free(pixelData);
+        return;
+    }
+
+    // Convert pixel data to binary
+    std::vector<bool> binaryData;
+    for (int i = 0; i < width * height * channels; ++i) {
+        for (int j = 7; j >= 0; --j) {
+            binaryData.push_back((pixelData[i] >> j) & 1);
+        }
+    }
+
+    // Measure the time taken to encode the binary data
+    auto start = std::chrono::high_resolution_clock::now();
+    std::vector<bool> encodedData = encode(binaryData, r, m);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    std::cout << "Encoding took " << duration.count() << " seconds." << std::endl;
+
+    // Introduce errors
+    // std::vector<bool> corruptedData = introduceErrors(encodedData, q);
+
+    // Decode the data
+    auto start1 = std::chrono::high_resolution_clock::now();
+    std::vector<bool> decodedData = decodeChunks(encodedData, 1, m);
+    auto end1 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration1 = end1 - start1;
+    std::cout << "Decoding took " << duration1.count() << " seconds." << std::endl;
+
+    // Convert binary data back to pixel data
+    std::vector<uint8_t> correctedPixelData;
+    for (size_t i = 0; i < decodedData.size(); i += 8) {
+        uint8_t byte = 0;
+        for (int j = 0; j < 8; ++j) {
+            if (i + j < decodedData.size()) {
+                byte |= (decodedData[i + j] << (7 - j));
+            }
+        }
+        correctedPixelData.push_back(byte);
+    }
+
+    // Create the output filename by appending "_corrected" before the file extension
+    outputFilename = filename;
+    dotPos = outputFilename.find_last_of(".");
+    if (dotPos != std::string::npos) {
+        outputFilename.insert(dotPos, "_corrected");
+    } else {
+        outputFilename += "_corrected";
+    }
+    outputFilePath = outputFilename;
+
+    // Write corrected pixel data back to BMP file
+    if (!stbi_write_bmp(outputFilePath.c_str(), width, height, channels, correctedPixelData.data())) {
+        std::cerr << "Error: Unable to create output file" << std::endl;
+        stbi_image_free(pixelData);
+        return;
+    }
+
+    stbi_image_free(pixelData);
+    std::cout << "Corrected image saved as " << outputFilename << std::endl;
+}
 
 
 int main() {
@@ -342,38 +426,38 @@ int main() {
     std::getline(std::cin, input);
     std::cout << "You entered: " << input << std::endl;
     std::vector<bool> bits = stringToBoolVector(input);
-    std::cout << "Bits: ";
-    for (bool bit : bits) {
-        std::cout << bit;
-    }
-    std::string output = boolVectorToString(bits);
-    std::cout << "\nConverted back to string: " << output;
-    
-    // bits.clear();
-    // for (int i = 0; i < 1000000; i++) {
-    //     bits.push_back(rand() % 2);
+    // std::cout << "Bits: ";
+    // for (bool bit : bits) {
+    //     std::cout << bit;
     // }
-    auto start = std::chrono::high_resolution_clock::now();
-    std::vector<bool> encodedBits = encode(bits, r, 25);
-    auto end = std::chrono::high_resolution_clock::now();
+    // std::string output = boolVectorToString(bits);
+    // std::cout << "\nConverted back to string: " << output;
     
-    std::chrono::duration<double> elapsed = end - start;
-    std::cout << "Encoding complete" << std::endl;
-    std::cout << "Time taken to encode: " << elapsed.count() << " seconds" << std::endl;
-    // std::cout << "Encoded bits: ";
-    // for (bool bit : encodedBits) {
-        // std::cout << bit;
+    // // bits.clear();
+    // // for (int i = 0; i < 1000000; i++) {
+    // //     bits.push_back(rand() % 2);
+    // // }
+    // auto start = std::chrono::high_resolution_clock::now();
+    // std::vector<bool> encodedBits = encode(bits, r, 25);
+    // auto end = std::chrono::high_resolution_clock::now();
+    
+    // std::chrono::duration<double> elapsed = end - start;
+    // std::cout << "Encoding complete" << std::endl;
+    // std::cout << "Time taken to encode: " << elapsed.count() << " seconds" << std::endl;
+    // // std::cout << "Encoded bits: ";
+    // // for (bool bit : encodedBits) {
+    //     // std::cout << bit;
+    // // }
+    // auto start2 = std::chrono::high_resolution_clock::now();
+    // std::vector<bool> decodedBits = decodeChunks(encodedBits, r, 25);
+    // auto end2 = std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double> elapsed2 = end2 - start2;
+    // std::cout << "Decoding complete" << std::endl;
+    // std::cout << "Time taken to decode: " << elapsed2.count() << " seconds" << std::endl;
+    // std::cout << "\nDecoded bits: ";
+    // for (bool bit : decodedBits) {
+    //     std::cout << bit;
     // }
-    auto start2 = std::chrono::high_resolution_clock::now();
-    std::vector<bool> decodedBits = decodeChunks(encodedBits, r, 25);
-    auto end2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed2 = end2 - start2;
-    std::cout << "Decoding complete" << std::endl;
-    std::cout << "Time taken to decode: " << elapsed2.count() << " seconds" << std::endl;
-    std::cout << "\nDecoded bits: ";
-    for (bool bit : decodedBits) {
-        std::cout << bit;
-    }
-    std::cout << boolVectorToString(decodedBits) << std::endl;
-
+    // std::cout << boolVectorToString(decodedBits) << std::endl;
+    runPicture(3, "katukai.bmp", 0.1);
 }

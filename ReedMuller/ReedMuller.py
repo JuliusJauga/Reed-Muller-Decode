@@ -7,7 +7,7 @@ import time
 from multiprocessing import shared_memory
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
-
+from bitarray import bitarray
 
 def decode_worker(start, end, shm_name, shape, dtype, m, decoder):
     shm = shared_memory.SharedMemory(name=shm_name)
@@ -29,9 +29,8 @@ def encode_worker(start, end, generator, shm_name, shape, dtype, m):
     encoded_message = []
     for chunk in chunks:
         encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
-    return encoded_message
-
-
+    bitarray_encoded_message = bitarray(encoded_message)
+    return bitarray_encoded_message
 
 
 class ReedMuller:
@@ -48,6 +47,22 @@ class ReedMuller:
         if r > m:
             raise ValueError("r must be less than or equal to m")
         
+    def reset(self):
+        self.message = None
+        self.noisy_message = None
+        self.encoded_message = None
+        self.decoded_message = None
+        self.mistake_positions = None
+        self.noisy_original_message = None
+        self.original_message = None
+        self.appended_bits = 0
+
+    def change_m(self, new_m):
+        self.m = new_m
+        self.decoder.change_m(new_m)
+    
+    def get_m(self):
+        return self.m
 
     def set_message(self, message):
         if message is None:
@@ -61,6 +76,15 @@ class ReedMuller:
             self.message = unpacked_message.tolist()
         else:
             self.message = message
+            self.original_message = message.copy()
+        self.noisy_message = None
+        self.encoded_message = None
+
+    def set_vector(self, vector):
+        if vector is None:
+            raise ValueError("Vector cannot be None")
+        self.message = [int(bit) for bit in vector]
+        self.original_message = [int(bit) for bit in vector]
         self.noisy_message = None
         self.encoded_message = None
     
@@ -79,6 +103,12 @@ class ReedMuller:
             return self.noisy_message
         except:
             return None
+    
+    def get_noisy_original_message(self):
+        try:
+            return self.noisy_original_message
+        except:
+            return self.original_message
     def get_decoded_message(self):
         try:
             return self.decoded_message
@@ -86,6 +116,16 @@ class ReedMuller:
             return None
     def get_mistake_positions(self):
         return self.mistake_positions
+    
+    def get_original_message(self):
+        return self.original_message
+    
+    def apply_noise_to_original_message(self, noise_type, noise_amount):
+        if self.original_message is None:
+            raise ValueError("No original message to apply noise to")
+        noisy_message, mistake_positions = NoiseApplicator.apply_noise(self.original_message, noise_type, noise_amount)
+        self.noisy_original_message = noisy_message
+        return noisy_message, mistake_positions
     
     def flip_mistake_position(self, index):
         if self.noisy_message is None:
@@ -156,25 +196,18 @@ class ReedMuller:
                 chunks[-1] = chunks[-1].tolist()
             chunks[-1].append(0)
             appended_bits += 1
-            appended_bits += 1
         return (chunks, appended_bits)
 
     def encode(self):
         start_time = time.time()
-        # Encode the message using the generator matrix
         if len(self.message) > 16*16*3*8:
-            # print("Message too large, using sequential encoding")
             encoded = self.encode_sequentially(self.message)
             end_time = time.time()
-            # print(f"Time taken to encode: {end_time - start_time}")
             return encoded
         chunks = ReedMuller.split_message_for_encoding(self.message, self.m)
-        # print((len(chunks), len(chunks[0])))
         start_time = time.time()
         generator = self.generator_matrix(self.r, self.m)
         end_time = time.time()
-        # print(f"Time taken to generate matrix: {end_time - start_time}")
-
         encoded_message = []
         for chunk in chunks:
             encoded_message.extend(Utility.vector_by_matrix_mod2(chunk, generator))
@@ -184,10 +217,7 @@ class ReedMuller:
         return self.encoded_message
 
     def encode_sequentially(self, message):
-        chunk_size = 2*3*4*5*6*7*8
-        while chunk_size % (self.m+1) != 0:
-            chunk_size -= 1
-        encoded_message = []
+        chunk_size = self.m + 1
         appended_bits = 0
         generator = self.generator_matrix(self.r, self.m)
         length = len(message)
@@ -198,9 +228,9 @@ class ReedMuller:
         shared_mem = shared_memory.SharedMemory(create=True, size=flat_message.nbytes)
         shared_array = np.ndarray(flat_message.shape, dtype=flat_message.dtype, buffer=shared_mem.buf)
         np.copyto(shared_array, flat_message)
-
         try:
-            ranges = [(i, min(i + chunk_size, len(flat_message))) for i in range(0, len(flat_message), chunk_size)]
+            ranges = self.calculate_ranges(len(flat_message), chunk_size)
+            encoded_message = bitarray()
             with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
                 futures = {
                     executor.submit(encode_worker, start, end, generator, shared_mem.name, flat_message.shape, flat_message.dtype, self.m): i
@@ -213,17 +243,14 @@ class ReedMuller:
                 for result in results:
                     if result is not None:
                         encoded_message.extend(result)
-        
         finally:
             shared_mem.close()
             shared_mem.unlink()
             ranges.clear()
         
-        # print(len(encoded_message))
         if appended_bits > 0:
-            print("BITS WERE APPENDED DURING ENCODING")
             encoded_message = encoded_message[:-appended_bits]
-        self.noisy_message = encoded_message.copy()
+        self.noisy_message = encoded_message
         self.encoded_message = encoded_message
         return encoded_message
     
@@ -237,8 +264,7 @@ class ReedMuller:
         if len(self.noisy_message) == 0:
             raise ValueError("No noisy message to decode")
         
-        if len(self.noisy_message) > os.cpu_count() * 16 * 16 * 3 * 8:
-            # print("Message too large, using sequential decoding")
+        if len(self.noisy_message) > 16*16*3*8:
             return self.decode_sequentially(self.noisy_message)
         chunks, self.appended_bits = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
         decoded_message = []
@@ -252,9 +278,9 @@ class ReedMuller:
     def decode_sequentially(self, message):
         """Decode a message using shared memory and concurrent processing."""
         # Create a flat NumPy array from the message
+        if isinstance(message, bitarray):
+            message = message.tolist()
         chunk_size = 2**self.m
-        while chunk_size % (2**(self.m)) != 0:
-            chunk_size -= 1
         flat_message = np.array(message, dtype=np.uint8)
         if len(flat_message) % (2**self.m) != 0:
             self.appended_bits = ((2**self.m) - (len(flat_message) % (2**self.m)))
@@ -262,12 +288,9 @@ class ReedMuller:
         shared_mem = shared_memory.SharedMemory(create=True, size=flat_message.nbytes)
         shared_array = np.ndarray(flat_message.shape, dtype=flat_message.dtype, buffer=shared_mem.buf)
         np.copyto(shared_array, flat_message)
-
         try:
-            # Split the message into chunk ranges
-            chunk_size = chunk_size * os.cpu_count()
-            ranges = [(i, min(i + chunk_size, len(flat_message))) for i in range(0, len(flat_message), chunk_size)]
-
+            # Calculate optimal ranges for processing based on os.cpu_count()
+            ranges = self.calculate_ranges(len(flat_message), chunk_size)
             # Process chunks in parallel
             decoded_message = []
             with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
@@ -291,10 +314,34 @@ class ReedMuller:
             ranges.clear()
         
         if self.appended_bits > 0:
-            print("BITS WERE APPENDED DURING DECODING")
-
             decoded_message = decoded_message[:-self.appended_bits]
+        elif isinstance(message, list):
+            message = bitarray(message)
         self.decoded_message = decoded_message
+            
         return self.decoded_message
+
+
+    def calculate_ranges(self, length_of_message, chunk_size):
+        cpu_count = os.cpu_count()
+        num_chunks = (length_of_message + chunk_size - 1) // chunk_size
+
+        cpu_count = min(cpu_count, num_chunks)
+
+        ranges = []
+        chunks_per_cpu = num_chunks // cpu_count
+        remainder_chunks = num_chunks % cpu_count
+
+        start = 0
+        for i in range(cpu_count):
+            extra_chunk = 1 if i < remainder_chunks else 0
+            end = start + (chunks_per_cpu + extra_chunk) * chunk_size
+            end = min(end, length_of_message)
+            if start >= length_of_message:
+                break
+            ranges.append((start, end))
+            start = end
+
+        return ranges
     
     

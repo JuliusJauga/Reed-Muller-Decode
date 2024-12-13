@@ -5,6 +5,9 @@ import numpy as np
 class HadamardTransform(IDecoder):
     def __init__(self, m):
         self.m = m
+    
+    def change_m(self, m):
+        self.m = m
 
     def generate_H_i_m(self, i):
         I = Utility.generate_unitary_matrix(2 ** (self.m - i))
