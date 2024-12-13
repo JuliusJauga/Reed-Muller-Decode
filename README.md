@@ -4,10 +4,7 @@
     <img src="./katukai7.gif" alt="Noise applied for m7" style="width: 45%;">
 </div>
 <div >
-<div style="display: flex; justify-content: space-around;">
-    <p style="width: 45%;">Noise applied for M = 1</p>
-    <p style="width: 45%;">Noise applied for M = 7</p>
-</div>
+Noise applied to different levels of M.
 
 ## Introduction
 This is the implementation of Reed-Muller coding and decoding using Python.
