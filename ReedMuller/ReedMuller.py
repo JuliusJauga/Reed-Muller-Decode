@@ -28,12 +28,10 @@ def decode_worker(start, end, shm_name, shape, dtype, m, decoder):
     shm = shared_memory.SharedMemory(name=shm_name)
     shared_data = np.ndarray(shape, dtype=dtype, buffer=shm.buf)
     chunk = shared_data[start:end]
-    chunks, appended_bits = ReedMuller.split_message_for_decoding(chunk, 2**m)
+    chunks = ReedMuller.split_message_for_decoding(chunk, 2**m)
     decoded_message = []
     for chunk in chunks:
         decoded_message.extend(decoder.decode(chunk))
-    if appended_bits > 0:
-        decoded_message = decoded_message[:-appended_bits]
     return decoded_message
 
 def encode_worker(start, end, generator, shm_name, shape, dtype, m):
@@ -368,7 +366,7 @@ class ReedMuller:
         return chunks
 
     @staticmethod
-    def split_message_for_decoding(message, n, appended_bits=0):
+    def split_message_for_decoding(message, n):
         '''
         Split a message into chunks of size n precisely 2**m.
 
@@ -383,15 +381,13 @@ class ReedMuller:
         # Split the message into chunks of size n
         # If the last chunk is smaller than m, pad it with zeros
         chunks = []
-        appended_bits = 0
         for i in range(0, len(message), n):
             chunks.append(message[i:i + n])
         while len(chunks[-1]) < n:
             if isinstance(chunks[-1], np.ndarray):
                 chunks[-1] = chunks[-1].tolist()
             chunks[-1].append(0)
-            appended_bits += 1
-        return (chunks, appended_bits)
+        return chunks
 
     def encode(self):
         '''
@@ -486,7 +482,7 @@ class ReedMuller:
         
         if len(self.noisy_message) > 2**self.m * 8:
             return self.decode_sequentially(self.noisy_message)
-        chunks, self.appended_bits = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
+        chunks = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
         decoded_message = []
         for chunk in chunks:
             decoded_message.extend(self.decoder.decode(chunk))

@@ -549,8 +549,8 @@ def main():
                 decoded_message = message_to_bits(decoded_message)
                 st.success(f"Decoded message: {decoded_message}\n\n\n")
                 if not st.session_state['vector']:
-                    st.markdown(f"**Decoded message:**<br>{Utility.bit_list_to_str(decoded_message).replace(' ', '<br>')}", unsafe_allow_html=True)
-                    st.markdown(f"**Message without encoding:**<br>{Utility.bit_list_to_str(st.session_state['coder'].get_noisy_original_message()).replace(' ', '<br>')}", unsafe_allow_html=True)
+                    st.success(f"Decoded message: {Utility.bit_list_to_str(decoded_message)}")
+                    st.success(f"Original message: {Utility.bit_list_to_str(st.session_state['coder'].get_noisy_original_message())}")
             else:
                 with st.spinner('Decoding...'):
                     start_time = time.time()
