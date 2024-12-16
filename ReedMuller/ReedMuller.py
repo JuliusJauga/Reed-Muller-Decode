@@ -68,7 +68,6 @@ class ReedMuller:
         self.r = r
         self.n = 2**m
         self.decoder = decoder
-        self.appended_bits = 0        
         if r > 1 or r < 0:
             raise NotImplementedError("Only Reed-Muller codes with r = 1 are supported")
         if m == 0:
@@ -90,7 +89,6 @@ class ReedMuller:
         self.mistake_positions = None
         self.noisy_original_message = None
         self.original_message = None
-        self.appended_bits = 0
 
     def change_m(self, new_m):
         '''

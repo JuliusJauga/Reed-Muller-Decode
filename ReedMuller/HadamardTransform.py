@@ -33,7 +33,7 @@ class HadamardTransform(IDecoder):
         H_i_m = Utility.generate_kronecher_product(H_i_m, I)
         return H_i_m
 
-    def fast_hadamard_transform_old(self, message):
+    def fast_hadamard_transform(self, message):
         '''
         Perform the Fast Hadamard Transform on a boolean message of length 2^m.
 
@@ -74,10 +74,10 @@ class HadamardTransform(IDecoder):
         Returns:
             The decoded message.
         '''
-        message = self.fast_hadamard_transform_old(message)
+        message = self.fast_hadamard_transform(message)
         position, sign = self.find_largest_component_position(message)
         try:
-            position_in_bits = HadamardTransform.int_to_unpacked_bit_list(position, self.m)
+            position_in_bits = HadamardTransform.int_to_bit_list(position, self.m)
         except Exception:
             return
         position_in_bits = HadamardTransform.reverse_bit_list(position_in_bits)
@@ -91,7 +91,7 @@ class HadamardTransform(IDecoder):
         return position_reversed
     
     @staticmethod
-    def int_to_unpacked_bit_list(n, length=None):
+    def int_to_bit_list(n, length=None):
         '''
         Convert an integer to an unpacked binary list.
 
@@ -106,17 +106,11 @@ class HadamardTransform(IDecoder):
             raise ValueError("n must be greater than or equal to 0")
         if length is not None and length < 0:
             raise ValueError("length must be greater than or equal to 0")
-        if length is not None and length < n.bit_length():
-            raise ValueError("length must be greater than or equal to n.bit_length()")
         if length is None:
-            length = n.bit_length()
-        if n == 0:
-            return np.zeros(length, dtype=np.uint8).tolist()
-        bit_array = np.zeros(length, dtype=np.uint8)
-        for i in range(length):
-            bit_array[length - i - 1] = n % 2
-            n = n // 2
-        return bit_array
+            length = max(1, n.bit_length())
+        elif length < n.bit_length():
+            raise ValueError("length must be greater than or equal to n.bit_length()")
+        return [int(bit) for bit in bin(n)[2:].zfill(length)]
 
     @staticmethod
     def reverse_bit_list(bit_list):
@@ -153,50 +147,3 @@ class HadamardTransform(IDecoder):
                 sign = 1 if vector[i] > 0 else -1
                 position = i
         return position, sign
-    
-    def fast_hadamard_transform_recursive(self, vec, start, end):
-        '''
-        Perform the Fast Hadamard Transform recursively on a vector.
-        
-        Args:
-            vec: The vector to transform.
-            start: The start index of the vector.
-            end: The end index of the vector.
-        
-        Returns:
-            The transformed vector.
-        '''
-        if end - start == 1:  # Base case: single element
-            return
-
-        mid = start + (end - start) // 2
-        # Transform the first half
-        self.fast_hadamard_transform_recursive(vec, start, mid)
-        # Transform the second half
-        self.fast_hadamard_transform_recursive(vec, mid, end)
-
-        for i in range(start, mid):
-            a = vec[i]
-            b = vec[i + (mid - start)]
-            vec[i] = a + b  # Combine results (sum)
-            vec[i + (mid - start)] = a - b  # Combine results (difference)
-
-
-    def fast_hadamard_transform(self, message, m):
-        '''
-        Perform the Fast Hadamard Transform on a boolean message of length 2^m.
-
-        Args:
-            message: The message to transform.
-            m: The value of m.
-        
-        Returns:
-            The transformed message.
-        '''
-        N = 1 << m  # Length of the vector (2^m)
-        vector = self.convert_to_pm1(message)
-
-        # Perform in-place recursive Hadamard Transform
-        self.fast_hadamard_transform_recursive(vector, 0, N)
-
-        return vector

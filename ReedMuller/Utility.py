@@ -5,20 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 # Utility class for common functions used in the Reed-Muller and Hadamard Transform classes, such as matrix operations or bit manipulation
 class Utility:
     @staticmethod
-    def display_matrix(matrix):
-        '''
-        Display a matrix in a human-readable format.
-
-        Args:
-            matrix: The matrix to display.
-        
-        Returns:
-            None
-        '''
-        for row in matrix:
-            print(row)
-
-    @staticmethod
     def vector_by_matrix_mod2(vector, matrix):
         '''
         Multiply a vector by a matrix modulo 2.
@@ -82,12 +68,16 @@ class Utility:
     
     @staticmethod
     def generate_kronecher_product(A, B):
-        """
-        Compute the Kronecker product of two matrices A and B.
-        :param A: List of lists representing the first matrix
-        :param B: List of lists representing the second matrix
-        :return: List of lists representing the Kronecker product
-        """
+        '''
+        Generate the Kronecker product of two matrices.
+
+        Args:
+            A: The first matrix.
+            B: The second matrix.
+
+        Returns:
+            The Kronecker product of the two matrices.
+        '''
         rows_A, cols_A = len(A), len(A[0])
         rows_B, cols_B = len(B), len(B[0])
         
@@ -140,47 +130,6 @@ class Utility:
             result += v1[i] * v2[i]
         return result
     
-    @staticmethod
-    def int_to_bit_array(n, length=None):
-        '''
-        Convert an integer to a binary array.
-
-        Args:
-            n: The integer to convert.
-            length: The length of the binary array.
-        
-        Returns:
-            The binary array.
-        '''
-        # Convert to binary string and remove '0b' prefix
-        binary_string = bin(n)[2:]
-        
-        # Pad with leading zeros if length is specified
-        if length:
-            binary_string = binary_string.zfill(length)
-        
-        # Convert binary string to a list of integers
-        return [int(bit) for bit in binary_string]
-    
-    @staticmethod
-    def binary_to_string(binary_string, chunk_size=8):
-        '''
-        Convert a binary string to a string of characters.
-
-        Args:
-            binary_string: The binary string to convert.
-            chunk_size: The size of each chunk in bits.
-
-        Returns:
-            The string of characters.
-        '''
-        # Split the binary string into chunks of 8 bits
-        characters = []
-        for i in range(0, len(binary_string), chunk_size):
-            character = binary_string[i:i + chunk_size]
-            characters.append(chr(int(character, 2)))
-        return ''.join(characters)
-
     @staticmethod
     def flip_bit(noisy_message_in_bits: list, index: int):
         '''
