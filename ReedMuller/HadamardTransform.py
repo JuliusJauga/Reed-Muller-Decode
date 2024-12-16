@@ -1,7 +1,7 @@
 from .Utility import Utility
 from .IDecoder import IDecoder
 import numpy as np
-
+import time
 # Hadamard Transform class implementing the IDecoder interface
 class HadamardTransform(IDecoder):
     def __init__(self, m):
@@ -74,7 +74,7 @@ class HadamardTransform(IDecoder):
         Returns:
             The decoded message.
         '''
-        message = self.fast_hadamard_transform(message, self.m)
+        message = self.fast_hadamard_transform_old(message)
         position, sign = self.find_largest_component_position(message)
         try:
             position_in_bits = HadamardTransform.int_to_unpacked_bit_list(position, self.m)

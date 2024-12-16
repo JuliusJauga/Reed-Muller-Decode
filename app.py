@@ -545,11 +545,12 @@ def main():
                 st.write(f"Decoding took {elapsed_time:.2f} seconds")
                 st.session_state['decoded_message'] = decoded_message
                 if not st.session_state['vector']:
-                    st.session_state['decoded_string'] = Utility.np_bit_array_to_str(np.array(decoded_message))
+                    st.session_state['decoded_string'] = Utility.bit_list_to_str(decoded_message)
                 decoded_message = message_to_bits(decoded_message)
                 st.success(f"Decoded message: {decoded_message}\n\n\n")
                 if not st.session_state['vector']:
-                    st.success(f"Decoded message: {st.session_state['decoded_string']}")
+                    st.markdown(f"**Decoded message:**<br>{Utility.bit_list_to_str(decoded_message).replace(' ', '<br>')}", unsafe_allow_html=True)
+                    st.markdown(f"**Message without encoding:**<br>{Utility.bit_list_to_str(st.session_state['coder'].get_noisy_original_message()).replace(' ', '<br>')}", unsafe_allow_html=True)
             else:
                 with st.spinner('Decoding...'):
                     start_time = time.time()

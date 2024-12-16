@@ -1,5 +1,6 @@
 import numpy as np
-import time
+from concurrent.futures import ThreadPoolExecutor
+
 
 # Utility class for common functions used in the Reed-Muller and Hadamard Transform classes, such as matrix operations or bit manipulation
 class Utility:
@@ -69,50 +70,44 @@ class Utility:
         '''
         if n < 1:
             raise ValueError("n must be greater than 0")
-        matrix = []
+        matrix_columns = n
+        matrix_rows = n
+
+        matrix = [[0] * matrix_columns for _ in range(matrix_rows)]
         for i in range(n):
-            row = []
             for j in range(n):
                 if i == j:
-                    row.append(1)
-                else:
-                    row.append(0)
-            matrix.append(row)
+                    matrix[i][j] = 1
         return matrix
     
     @staticmethod
     def generate_kronecher_product(A, B):
-        '''
-        Generate the Kronecker product of two matrices A and B.
-
-        Args:
-            A: The first matrix.
-            B: The second matrix.
+        """
+        Compute the Kronecker product of two matrices A and B.
+        :param A: List of lists representing the first matrix
+        :param B: List of lists representing the second matrix
+        :return: List of lists representing the Kronecker product
+        """
+        rows_A, cols_A = len(A), len(A[0])
+        rows_B, cols_B = len(B), len(B[0])
         
-        Returns:
-            The result of the Kronecker product.
-        '''
-        # Generate the Kronecker product of two matrices A and B
-        rows_A = len(A)
-        cols_A = len(A[0])
-        rows_B = len(B)
-        cols_B = len(B[0])
+        result_rows, result_cols = rows_A * rows_B, cols_A * cols_B
         
-        # Initialize the result matrix with zeros
-        result = [[0] * (cols_A * cols_B) for _ in range(rows_A * rows_B)]
+        result = [[0] * result_cols for _ in range(result_rows)]
         
         for i in range(rows_A):
             for j in range(cols_A):
                 for k in range(rows_B):
                     for l in range(cols_B):
-                        result[rows_B * i + k][cols_B * j + l] = A[i][j] * B[k][l]
+                        result[i * rows_B + k][j * cols_B + l] = A[i][j] * B[k][l]
+        
         return result
     
     @staticmethod
     def vector_by_matrix(vector, matrix):
         '''
-        Multiply a vector by a matrix.
-        
+        Multiply a vector by a matrix. Transposing the matrix before multiplication allows for easier access to columns.
+
         Args:
             vector: The vector to multiply.
             matrix: The matrix to multiply.
@@ -120,15 +115,10 @@ class Utility:
         Returns:
             The result of the multiplication.
         '''
-        result = []
-        columns = []
-        for j in range(len(matrix[0])):
-            column = []
-            for i in range(len(matrix)):
-                column.append(matrix[i][j])
-            columns.append(column)
-        for col in columns:
-            result.append(Utility.dot_product(vector, col))
+        # Transpose the matrix to access columns easily
+        columns = list(zip(*matrix))
+
+        result = [Utility.dot_product(vector, column) for column in columns]
         return result
     
     @staticmethod
@@ -208,27 +198,21 @@ class Utility:
         return noisy_message_in_bits
     
     @staticmethod
-    def np_bit_array_to_str(bits):
+    def bit_list_to_str(bits):
         '''
-        Convert a NumPy bit array to a string.
+        Convert bit list to a string.
 
         Args:
-            bits: The NumPy bit array.
+            bits: list of bits
             
         Returns:
             The string.
         '''
-        # Ensure the bit array length is a multiple of 8
-        if bits.size % 8 != 0:
-            bits = np.pad(bits, (0, 8 - bits.size % 8), 'constant')
-
-        # Reshape the bit array into bytes (8 bits per byte)
-        bytes_array = bits.reshape(-1, 8)
-
-        # Convert each byte to an integer
-        byte_values = np.packbits(bytes_array, axis=1).flatten()
-
-        # Decode the byte values to a string
-        decoded_string = byte_values.tobytes().decode('utf-8', errors='ignore')
-        
-        return decoded_string
+        # Convert the list of bits to a string by processing 8 bits at a time
+        message_str = ''
+        for i in range(0, len(bits), 8):
+            byte = bits[i:i+8]
+            byte_str = ''.join(map(str, byte))
+            character = chr(int(byte_str, 2))
+            message_str += character
+        return message_str

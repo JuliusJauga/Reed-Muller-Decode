@@ -364,6 +364,7 @@ class ReedMuller:
             chunks.append(message[i:i + m])
         while len(chunks[-1]) < m:
             chunks[-1].append(0)
+            appended_bits += 1
         return chunks
 
     @staticmethod
@@ -399,6 +400,7 @@ class ReedMuller:
         Returns:
             list: The encoded message.
         '''
+        self.original_message_length = len(self.message)
         if len(self.message) > 16*16*3*8:
             encoded = self.encode_sequentially(self.message)
             return encoded
@@ -453,8 +455,6 @@ class ReedMuller:
             shared_mem.unlink()
             ranges.clear()
         
-        if appended_bits > 0:
-            encoded_message = encoded_message[:-appended_bits]
         self.noisy_message = encoded_message
         self.encoded_message = encoded_message
         return encoded_message
@@ -484,14 +484,16 @@ class ReedMuller:
         if len(self.noisy_message) == 0:
             raise ValueError("No noisy message to decode")
         
-        if len(self.noisy_message) > 16*16*3*8:
+        if len(self.noisy_message) > 2**self.m * 8:
             return self.decode_sequentially(self.noisy_message)
         chunks, self.appended_bits = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
         decoded_message = []
         for chunk in chunks:
             decoded_message.extend(self.decoder.decode(chunk))
-        if self.appended_bits > 0:
-            decoded_message = decoded_message[:-self.appended_bits]
+        if self.original_message_length is not None:
+            difference = len(decoded_message) - self.original_message_length
+            if difference > 0:
+                decoded_message = decoded_message[:-difference]
         chunks.clear()
         return decoded_message
 
@@ -510,8 +512,8 @@ class ReedMuller:
         chunk_size = 2**self.m
         flat_message = np.array(message, dtype=np.uint8)
         if len(flat_message) % (2**self.m) != 0:
-            self.appended_bits = ((2**self.m) - (len(flat_message) % (2**self.m)))
-            flat_message = np.pad(flat_message, (0, self.appended_bits))
+            appended_bits = ((2**self.m) - (len(flat_message) % (2**self.m)))
+            flat_message = np.pad(flat_message, (0, appended_bits))
         shared_mem = shared_memory.SharedMemory(create=True, size=flat_message.nbytes)
         shared_array = np.ndarray(flat_message.shape, dtype=flat_message.dtype, buffer=shared_mem.buf)
         np.copyto(shared_array, flat_message)
@@ -540,12 +542,14 @@ class ReedMuller:
             shared_mem.unlink()
             ranges.clear()
         
-        if self.appended_bits > 0:
-            decoded_message = decoded_message[:-self.appended_bits]
-        elif isinstance(message, list):
+        
+        if isinstance(message, list):
             message = bitarray(message)
         self.decoded_message = decoded_message
-            
+        if self.original_message_length is not None:
+            difference = len(decoded_message) - self.original_message_length
+            if difference > 0:
+                self.decoded_message = decoded_message[:-difference]
         return self.decoded_message
 
 

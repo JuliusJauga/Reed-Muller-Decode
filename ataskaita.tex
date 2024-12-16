@@ -1,6 +1,14 @@
 \documentclass{article}
 \usepackage{graphicx} % Required for inserting images
-
+\usepackage[T1]{fontenc} % Use T1 font encoding
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{float} % For [H] placement
+\usepackage{placeins} % For \FloatBarrier
+\usepackage[utf8]{inputenc} % Input encoding for Lithuanian characters
+\usepackage[T1]{fontenc}    % Font encoding for special characters
+\usepackage[lithuanian]{babel} % Lithuanian language support
 \title{Kodavimo teorijos užduoties ataskaita}
 \author{Julius Jauga}
 \date{December 2024}
@@ -9,24 +17,271 @@
 
 \maketitle
 
-\section{Introduction}
-This document provides a detailed report on the coding theory task. The aim is to decode Reed-Muller codes and analyze their performance.
+\tableofcontents
 
-\section{Background}
-Reed-Muller codes are a family of linear error-correcting codes used in communications and data storage. They are known for their simplicity and robustness.
 
-\section{Methodology}
-The decoding process involves several steps:
+\section{Įvadas}
+Ši ataskaita pateikia informacija, kaip buvo realizuota A5 užduotis Rydo Miulerio kodui su q=2, r=1 ir pasirenkamu parametru m.
+
+\section{Realizuotos dalys}
 \begin{enumerate}
-    \item Syndrome calculation
-    \item Error pattern identification
-    \item Error correction
+    \item Baigtiniai kūnai
+    \item Kodavimas
+    \item Kanalas
+    \item Dekodavimas
+    \item Išeities tekstai
+    \item Ataskaita
 \end{enumerate}
 
-\section{Results}
-The decoding algorithm was tested on various codewords. The results show that the algorithm can correct up to 3 errors in a codeword of length 15.
+\section{Programos failai}
+\begin{enumerate}
+    \item \texttt{app.py} - Failas vartotojo sąsajai sukompiliuoti, naudojamas
+    Python kalbos streamlit paketas.
+    \item \texttt{ReedMuller.py} - Failas, kuriame apibrėžta klasė, kuri kontroliuoja kodavimo, dekodavimo algoritmo būsena. Užkoduoja, gali kreiptis į kanalo klasę iškraipyti žinutę, taip pat gali kreiptis į savo dekodatorių dekoduoti žinutę.
+    \item \texttt{HadamardTransform.py} - Failas, kuriame apibrėžta dekodatoriaus klasė. Dekodatorius naudoja greitają Hadamardo transformaciją dekoduoti žinutę. Jame apibrėžtos reikalingos funkcijos ir algoritmai dekoduoti žinutę.
+    \item \texttt{IDecoder.py} - Failas apibrėžiantis sąsają dekodatoriui. Su funkcija "decode". Kurią turi realizuoti konkretus dekodatorius.
+    \item \texttt{NoiseApplicator.py} - Failas apibrėžiantis kanalą. Gali iškraipyti žinutę pagal suteiktą klaidos tikimybę ir iškraipymo tipą.
+    \item \texttt{NoiseEnum.py} - Failas kuriame apibrėžtas enumeratorius skirtingiems iškraipymo tipams.
+    \item \texttt{EasingFunctions.py} - Failas, kuriame apibrėžtos funkcijos skirtingiems iškraipymo tipams. Tai yra matematinės funkcijos skirtos sudaryti skirtingą iškraipymo efektą. Pavyzdžiui: Klaidos labiau tikėtina, jog įvyks pradžioje ar viduryje ir panašiai.
+    \item \texttt{Utility.py} - Failas, kuriame apibrėžtos pagalbinės funkcijos dirbti su baigtiniais kūnais $\mathbb{F}_2$, bei kitos pagalbinės funkcijos darbui su matricomis, vektorių dauginimu, Kronekerio daugyba, vienetinės matricos.
+\end{enumerate}
 
-\section{Conclusion}
-The Reed-Muller decoding algorithm is effective for correcting errors in transmitted data. Future work will focus on optimizing the algorithm for faster performance.
+\section{Programos paleidimas}
+Kadangi programa parašyta Python kalba, ja galima vykdyti runtime metu. Norint palengvinti ir izoliuoti programos paleidimą, galima sukurti virtualią python aplinką ir per ją paleisti programą (Jeigu ji nėra pateikta)
+Pateikiamos instrukcijos Windows bei Linux pagrindo operacinių sistemų instrukcijos paleisti programą.
+
+Linux:
+\begin{enumerate}
+    \item \texttt{sudo apt update}
+    \item \texttt{sudo apt install python3 python3-pip python3-venv}
+    \item \texttt{cd programos\textbackslash failai}
+    \item \texttt{python3 -m venv venv}
+    \item \texttt{source venv/bin/activate}
+    \item \texttt{pip install streamlit numpy bitarray pillow}
+    \item \texttt{streamlit run app.py}
+\end{enumerate}
+Jeigu venv aplinka jau yra pateikta ir turima Python kompiuteryje, reikia naudoti tik 5 ir 7 komandas.
+
+Windows:
+\begin{enumerate}
+    \item Parsisiųsti Python 3 versiją.
+    \item \texttt{cd programos\textbackslash failai}
+    \item \texttt{python -m venv venv}
+    \item \texttt{venv\textbackslash Scripts\textbackslash activate}
+    \item \texttt{pip install streamlit numpy bitarray pillow}
+    \item \texttt{streamlit run app.py}
+\end{enumerate}
+Taip pat kaip ir Linux, jeigu venv aplinka yra pateikta ir turima Python kompiuteryje. Naudoti tik 4 ir 6 komandas.
+
+\section{Vartotojo sąsajos aprašymas}
+Vartotojo sąsaja yra realizuota anglu kalba. 
+Pasileidęs programą vartotojas gali nueiti į internetinį puslapį, kurį nurodo programa ir ten pradėti dirbti.
+Yra nurodytas laukas, kur galima įvesti \textbf{m} parametrą. Galima rinktis tarp trijų pateikimų programai: 
+\begin{enumerate}
+    \item Galima duoti vektorių 01 seka, kurio ilgis privalės būti lygus m+1.
+    \item Galima parašyti teksto žinutę, kurios ilgis gali nesvarbus, kadangi programa tuo pasirūpins.
+    \item Galima atidaryti nuotrauką įrenginyje, kurią programa atidarys. Nuotraukos parametrai taip pat nesvarbūs.
+\end{enumerate}
+
+Paspaudus užkoduoti, yra pateikiamas užkoduotas vektorius. Ir yra pateikiami būdai manipuliuoti vektorių, galima rinktis keisti individualius bitus. Galima įvesti klaidos tikimybę kaip norima (kableliu ar taškeliu) ir kaip įvyks klaidos vektoriui einant per kanalą. Paspaudus "Apply Noise", žinutė eina per kanalą. Taip pat galima naudoti "slider", keisti klaidos tikimybei.
+Bitai, kuriuose įvyko klaidos bus nuspalvinti raudonai.
+
+Mygtukas "Toggle bit" leidžia pakeisti individualų bitą rankomis, užrašant jo poziciją pradedant 0.
+
+Paspaudus mygtuką dekoduoti, yra dekoduojama žinutė. Baigus dekoduoti, priklausomai, kokia įvestis buvo pasirinkta, bus parodomi šitie duomenys:
+\begin{enumerate}
+    \item Jeigu tai buvo vektorius, bus parodytas vektorius išėjęs iš kanalo.
+    \item Jeigu tai buvo žinutė, bus parodyta žinutės bitų seka, originali žinutė, kuri ėjo per kanalą be kodavimo ir žinutė, kuri ėjo per kanalą su kodavimu.
+    \item Jeigu tai buvo nuotrauka. Yra pateikiami du nuotraukos variantai: 1. Nuotrauka ėjusi per kanalą be kodavimo ir su kodavimu. Jos abi atidaromos, jog būtų galima jas palyginti.
+\end{enumerate}
+
+
+\section{Programiniai sprendimai}
+Užkoduojant ir dekoduojant žinutę, siunčiamos žinutės ilgis gali neatitikti kodavimo ir dekodavimo algoritmų parametrų. Tokiu atveju žinutė yra skaidoma į reikiamo dydžio vektorius, o prie paskutinio vektoriaus yra pridedami nuliai.
+
+Prieš užkoduojant žinutę, yra išsaugomas jos pradinis ilgis. Po dekodavimo, jeigu jos ilgis neatitinka pradinio, papildomi bitai yra atmetami (Tarnybinė funkcija).
+
+Programos veikimo optimizavimas. Kadangi programa dirbo gana lėtai reikėjo ieškoti sprendimų kaip ją pagreitinti ir išnaudoti ką galimą. Pasirinkau naudoti daugiafunkcinį apdorojimą naudojant skirtingus procesus ar gijas veikiančias vienu metu, taip sutaupant laiko programos veikimo metu su didesne resursų panaudojimo kaina. Buvo ieškoma kompromiso tarp šitų dalykų. 
+
+Daugiafunkcinį apdorojimą įgyvendinau kodavimo, dekodavimo bei kanalo realizavime. Realizavimas buvo vykdomas apskaičiuojant optimaliausią individualaus proceso, kuriam bus skirta žinutė dydžiai, bei galimų procesorių kiekiu. Po to yra naudojama bendra atmintis, kuria dalinasi visi procesai, tačiau kiekvienas jų turi intervalus, kuriuose jie turi dirbti. Jie yra sunumeruojami, o kiekvienas atlikęs savo darbą, gražiną savo rezultatą, kas yra užkoduotas vektorius arba dekoduotas vektorius, priklausomai nuo naudojamos funkcijos.
+
+Gijos buvo panaudotos siunčiant žinutę kanalu. Žinutė yra išdalijama segmentais, o kiekvienas segmentas, kada gali atsirakiną žinutės vektorių ir iškraipo bitą, jeigu ten įvyko klaida. Kintamojo rakinimas ir atrakinimas yra naudojamas užtikrinti saugumą, kai daug gijų gali naudoti tą patį kintamąjį.
+
+\section{Kodo tyrimas}
+Atlikti tyrimui sugalvojau, kokių duomenų man reikia ir kiek jų reikia, kad būtų galima grubius rezultatus. Tai padariau generuodamas kelis šimtus atsitiktinių vektorių kiekvienam m iš intervalo [1, 17].
+
+Kiekvienas vektorius po užkodavimo buvo siunčiamas kanalu su tokiomis klaidos tikimybėmis: [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.49]. 
+
+Surinkti tokie duomenys: m reikšmė, kodavimo laikas, dekodavimo laikas, pridėtų bitų kiekis, klaidos tikimybė, ar ištaisyta teisingai.
+
+Toliau pateikiamos diagramos iš surinktų duomenų.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{encoding_time_vs_m.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{decoding_time_vs_m.png}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{error_correction_capability_vs_m.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{redundant_bits_vs_m.png}
+    \end{minipage}
+\end{figure}
+Matome, jog su m, laikas bei pridėti bitai kyla eksponentiškai.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{error_correction_vs_redundant_bits.png}
+\end{figure}
+Klaidų korekcijos galimybė tiesiogiai susijusi su pridėtais bitais.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{success_rate_vs_m.png}
+\end{figure}
+Su skirtingu triukšmų matome sekmės tikimybę kiekvienam m. Matome, jog sekmės tikimybė nukrenta ir tada vėl kyla. Tai yra dėl to, jog kodas išplečiamas, tačiau klaidų jis efektyviai dar netaiso.
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_1.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_2.png}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_3.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_4.png}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_5.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_6.png}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_7.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_8.png}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_9.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_10.png}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_11.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_12.png}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_13.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_14.png}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_15.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{success_rate_vs_noise_amount_m_16.png}
+    \end{minipage}
+\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{success_rate_vs_noise_amount_m_17.png}
+\end{figure}
+Matome, jog su kylančiu m, tikimybė ištaisyti klaidas kyla iki 50\%.
+
+
+\section{Trečiųjų šalių bibliotekos}
+\begin{itemize}
+    \item \textbf{streamlit} - Python kalbos paketas vartotojo sąsajai per internetinį puslapį.
+    \item \textbf{PIL} - Python kalbos paketas skirtas dirbti su failais ir jų duomenimis. Pavyzdžiui atidaryti, uždaryti nuotraukas, paversti į bitų seką ir panašiai.
+    \item \textbf{NumPy} - Python kalbos paketas su pagalbinėmis funkcijomis. Naudota paversti baitus į bitų sekas, pakeisti bitų sekų formą atidaryti nuotraukai. Naudoti NumPy paketo masyvai dėl efektyvumo supakuoti ir išpakuoti bitus iš ar į uint8 duomenų tipą.
+    \item \textbf{math} - Naudota EasingFunctions.py faile matematinėm funkcijom kaip sinusas ar $\pi$ konstanta.
+    \item \textbf{bitarray} - Naudota išsaugoti užkoduotus vektorius, nes buvo susidurta su per dideliu atminties naudojimu programoje.
+    \item \textbf{multiprocessing} ir \textbf{threading} - Standartiniai Python kalbos paketai skirti leisti atskirus procesus.
+\end{itemize}
+
+
+
+\section{Laiko ataskaita}
+Užduoties realizavimas susidarė iš kelių dalių, kuriuos dariau skirtingais laiko tarpais. Pradėjau nuo literatūros skaitymo. Pirmiausią skaičiau kodavimo teorijos konspektą, kuris yra pateiktas VMA aplinkoje tiesiog susipažinti su kodavimu, savokomis ir bendromis temomis. Taip pat perskaičiau savo užduoties straipsnį, kuris taip pat yra pateiktas VMA aplinkoje, peržiūrėjau paskaitą. Tam skyriau kelias savaites.
+
+Antroje dalyje pradėjau projektuotis programą. Sugalvojau, iš kokių dalių, ji turi susidaryti, pasirinkau programavimo kalbą. Tai užtruko apie dieną
+
+Trečioje dalyje realizavau kodavimą ir dekodavimą tekstui. Ši dalis reikalavo nemažai pastangų ir laiko, kadangi susidūriau su nemažai problemų dėl savo paties klaidų. Visa tai užtruko apie savaitę.
+
+Ketvirtoje dalyje realizavau kodavimą ir dekodavimą nuotraukai. Šioje dalyje susidūriau su savo pasirinktos kalbos problemomis, todėl turėjau ieškoti būdų kaip jas apeiti. Problema buvo itin lėtas programos veikimas. Ši dalis taip pat užtruko kelias dienas, kadangi 
+
+Penktoje dalyje realizavau vartotojo sąsają. Pradėjau daryti programą konsolėje, tačiau pasirinkau "streamlit" paketą, kuris leidžia padaryti internetinį puslapį Python kalba. Tai susiejau su įprastu programos veikimu.
+
+Šeštoje dalyje dariau tyrimą. Programos veikimas su skirtingais parametrais, žinučių dydžiais. Stebėjau kiek klaidų ištaiso kodas, kiek laiko užtrunka mano programa.
+
+Septintoje dalyje rašiau ataskaitą, komentarus programoje.
+
+\section{Naudota literatūra}
+[Coo99] B. Cooke. Reed Muller Error Correcting Codes. The MIT Undergraduate Journal of Mathematics, Volume1, pp. 21-26, 1999.
 
 \end{document}
