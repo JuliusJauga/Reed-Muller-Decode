@@ -510,21 +510,17 @@ def main():
             
 
         st.write("Encoded bits:")   
-        # Display colored bits in a scrollable, wrapping container
         BITS_PER_PAGE = 100
         start = st.session_state.current_page * BITS_PER_PAGE
         end = min(start + BITS_PER_PAGE, len(st.session_state['coder'].get_noisy_message()))
 
-
-        
-        # Handle query parameter for toggling bits
         # Render bits
         st.write(f"Displaying bits {start + 1} to {end}:")
         bits_html = render_bits(start, end)
         st.markdown(bits_html, unsafe_allow_html=True)
 
         # Pagination buttons
-        col1, col2 = st.columns([3, 3])  # Both columns are equally wide
+        col1, col2 = st.columns([3, 3])
         with col1:
             if st.button("Previous"):
                 if st.session_state.current_page > 0:
