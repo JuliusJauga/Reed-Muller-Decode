@@ -3,20 +3,29 @@ from ReedMuller import ReedMuller
 from ReedMuller import HadamardTransform
 from ReedMuller import NoiseEnum
 from ReedMuller import Utility
-from ReedMuller import NoiseApplicator
 import time
 import numpy as np
 from PIL import Image
 import os
-import memory_profiler
 from bitarray import bitarray
+from typing import Union
 
-
+# Set page configuration, for full width
 st.set_page_config(
     layout="wide",  # Expands the app to use the full width of the browser
 )
 
+# Convert an image to binary data
 def image_to_binary(image):
+    '''
+    Converts an image to binary data.
+
+    Args:
+        image (PIL.Image): The image to convert
+    
+    Returns:
+        tuple: A tuple containing the binary data and the original shape
+    '''
     # Load the image
     img = image.convert('RGB')
     img_array = np.array(img, dtype=np.uint8)  # Convert to NumPy array
@@ -27,7 +36,16 @@ def image_to_binary(image):
     return binary_array, img_array.shape  # Return binary data and original shape
 
 def binary_to_image(binary_array, shape):
-    print(binary_array)
+    '''
+    Converts binary data to an image.
+
+    Args:
+        binary_array (list): The binary data
+        shape (tuple): The original shape of the image
+    
+    Returns:
+        PIL.Image: The image created from the binary data
+    '''
     if isinstance(binary_array, bitarray):
         binary_array = np.array(binary_array.tolist(), dtype=np.uint8)
     # Reshape and convert binary back to uint8
@@ -46,6 +64,19 @@ def binary_to_image(binary_array, shape):
         binary_array = bitarray.bitarray(binary_array)
     return Image.fromarray(img_array, mode='RGB')
 
+# Convert a message to bit string
+def message_to_bits(message):
+    '''
+    Converts a message to a bit string.
+
+    Args:
+        message (list): The message to convert
+    
+    Returns:
+        str: The bit string representation of the message
+    '''
+    message = bitarray(message)
+    return message.to01()
 
 
 # Initialize Reed-Muller and Hadamard transform objects
@@ -55,57 +86,201 @@ if 'coder' not in st.session_state:
     st.session_state['coder'] = ReedMuller(1, 3, st.session_state['decoder'])
 
 
-# Placeholder for your backend functions
-def encode_message(message: str, coder: ReedMuller) -> str:
+def encode_message(message: str, coder: ReedMuller):
+    '''
+    Encodes a message using the Reed-Muller encoder.
+
+    Args:
+        message (str): The message to encode
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The encoded message
+    '''
     coder.set_message(message)
     return coder.encode()
 
-def encode_vector(vector: list, coder: ReedMuller) -> str:
+
+def encode_vector(vector: list, coder: ReedMuller):
+    '''
+    Encodes a vector using the Reed-Muller encoder.
+
+    Args:
+        vector (list): The vector to encode
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The encoded message
+    '''
     coder.set_vector(vector)
     if len(vector) != coder.get_m() + 1:
         raise ValueError(f"Vector must be exactly {coder.get_m() + 1} bits long")
     return coder.encode()
 
-def apply_noise(noise_type: NoiseEnum, noise_amount: float, coder: ReedMuller) -> str:
+def apply_noise(noise_type: NoiseEnum, noise_amount: float, coder: ReedMuller):
+    '''
+    Applies noise to the encoded message using the specified noise type and amount.
+
+    Args:
+        noise_type (NoiseEnum): The type of noise to apply
+        noise_amount (float): The amount of noise to apply
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The noisy message
+    '''
     coder.apply_noise(noise_type, noise_amount)
     return coder.get_noisy_message()
 
-def apply_noise_to_original(noise_type: NoiseEnum, noise_amount: float, coder: ReedMuller) -> str:
+def apply_noise_to_original(noise_type: NoiseEnum, noise_amount: float, coder: ReedMuller):
+    '''
+    Applies noise to the original message using the specified noise type and amount.
+
+    Args:
+        noise_type (NoiseEnum): The type of noise to apply
+        noise_amount (float): The amount of noise to apply
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The noisy message
+    '''
     coder.apply_noise_to_original_message(noise_type, noise_amount)    
     return coder.get_noisy_message()
 
-def set_message(message: str, coder: ReedMuller) -> None:
+def get_mistake_positions(coder: ReedMuller):
+    '''
+    Returns the positions of the mistakes in the encoded message.
+
+    Args:
+        coder (ReedMuller): The Reed-Muller encoder object
+
+    Returns:
+        list: The positions of the mistakes
+    '''
+    return coder.get_mistake_positions()
+
+def set_message(message: Union[str, list], coder: ReedMuller):
+    '''
+    Sets the message in the Reed-Muller encoder.
+
+    Args:
+        message (str or list): The message to set
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        None
+    '''
     coder.set_message(message)
 
-def get_encoded_message(coder: ReedMuller) -> str:
+def get_encoded_message(coder: ReedMuller):
+    '''
+    Gets the encoded message from the Reed-Muller encoder.
+
+    Args:
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The encoded message
+    '''
     return coder.get_encoded_message()
 
-def get_noisy_message(coder: ReedMuller) -> str:
+def get_noisy_message(coder: ReedMuller):
+    '''
+    Gets the noisy message from the Reed-Muller encoder.
+
+    Args:
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The noisy message
+    '''
     return coder.get_noisy_message()
 
-def get_original_message(coder: ReedMuller) -> str:
+def get_original_message(coder: ReedMuller):
+    '''
+    Gets the original message from the Reed-Muller encoder.
+
+    Args:
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The original message
+    '''
     return coder.get_original_message()
 
-def get_noisy_original_message(coder: ReedMuller) -> str:
+def get_noisy_original_message(coder: ReedMuller):
+    '''
+    Gets the noisy original message from the Reed-Muller encoder.
+
+    Args:
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The noisy original message
+    '''
     return coder.get_noisy_original_message()
 
-def get_decoded_message(coder: ReedMuller) -> str:
+def get_decoded_message(coder: ReedMuller):
+    '''
+    Gets the decoded message from the Reed-Muller encoder.
+
+    Args:
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The decoded message
+    '''
     return coder.get_decoded_message()
 
-def decode_message(coder: ReedMuller) -> str:
+def decode_message(coder: ReedMuller):
+    '''
+    Decodes the message using the Reed-Muller decoder.
+
+    Args:
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        list: The decoded message
+    '''
     return coder.decode()
 
-def reset(coder: ReedMuller) -> None:
+def reset(coder: ReedMuller):
+    '''
+    Resets the Reed-Muller encoder state.
+
+    Args:
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        None
+    '''
     coder.reset()
 
 # Helper functions
 def toggle_bit(index, coder):
-    """Toggle a noisy bit and update its value."""
+    '''
+    Toggles the bit at the specified index in the encoded message.
+
+    Args:
+        index (int): The index of the bit to toggle
+        coder (ReedMuller): The Reed-Muller encoder object
+    
+    Returns:
+        None
+    '''
     print(f"Toggling bit at index {index}")
     coder.flip_mistake_position(index)
 # Helper functions
 def render_bits(start, end):
-    """Generate HTML for the bits display."""
+    '''
+    Renders the bits in the specified range with color coding.
+    Args:
+        start (int): The starting index of the bits to display
+        end (int): The ending index of the bits to display
+    
+    Returns:
+        str: The HTML representation of the bits
+    '''
     original_bits = st.session_state.coder.get_encoded_message()
     noisy_bits = st.session_state.coder.get_noisy_message()
 
@@ -119,6 +294,7 @@ def render_bits(start, end):
     bits_html += "</div>"
     return bits_html
 
+# Add custom CSS for colored bits and image centering
 st.markdown(
     """
     <style>
@@ -166,7 +342,6 @@ st.markdown(
 )
 
 # Main function
-@memory_profiler.profile
 def main():
     # Initialize session state
     if 'original_bits' not in st.session_state:
@@ -183,6 +358,10 @@ def main():
 
     # User input section
     m_value = st.number_input("Enter the value of m:", min_value=1, max_value=100, value=3)
+    d_min = 2**(m_value - 1)
+    t = int((d_min - 1) / 2)
+    st.write(f"Minimum distance (d_min): {d_min}")
+    st.write(f"Error correction capability (t): {t}")
 
     # User input section
     input_type = st.radio("Choose input type:", ("Vector", "Text", "Image"))
@@ -203,12 +382,13 @@ def main():
             not_allowed = False
             
     elif input_type == "Text":
-        message = st.text_input("Enter your message:")
+        message = st.text_area("Enter your message:", height=150)
+        print(f"Message: {message}")
         st.session_state['uploaded_file'] = None
         st.session_state['original_image'] = None
         st.session_state['original_shape'] = None
         st.session_state['vector'] = False
-        if message is not None and len(message) > 0:
+        if message is not None and len(message.strip()) > 0:
             not_allowed = False
 
     elif input_type == "Image":
@@ -249,7 +429,6 @@ def main():
 
                     else:
                         encoded_bits = encode_message(message, st.session_state['coder'])
-                    
                 except ValueError as e:
                     st.error(f"Error: {e}")
                 end_time = time.time()
@@ -316,6 +495,12 @@ def main():
             not_allowed = False
             noise_type = st.session_state['noise_type']
             st.session_state['encoded_bits'] = apply_noise(NoiseEnum.from_string(noise_type), st.session_state['noise_amount'], st.session_state['coder'])
+            mistake_positions = get_mistake_positions(st.session_state['coder'])
+            mistake_count = len(mistake_positions)
+            st.write(f"Mistake count: {mistake_count}")
+            if mistake_count > 0:
+                if mistake_count < 100:
+                    st.write(f"Mistake positions: {mistake_positions}")
             print(f"Applying noise with type {noise_type} and amount {st.session_state['noise_amount']}")
             try:
                 st.session_state['not_encoded_image_bits'] = apply_noise_to_original(NoiseEnum.from_string(noise_type), st.session_state['noise_amount'], st.session_state['coder'])
@@ -348,62 +533,6 @@ def main():
             if st.button("Next"):
                 if end < len(st.session_state.coder.get_encoded_message()):
                     st.session_state.current_page += 1
-
-    if st.session_state['uploaded_file'] is not None:
-        # Checkbox for order of operations
-        order_of_operations = st.checkbox("m first or noise type first", value=True)
-        if st.button("Automatic Encode Decode and Save"):
-            noise_intervals = np.arange(0, 1.1, 0.1)  # Noise intervals from 0 to 1 with step 0.1
-            noise_types = NoiseEnum.list_all()
-            if order_of_operations == False:
-                for noise_type in noise_types:
-                    for noise_amount in noise_intervals:
-                        for m in range(1, 8):
-                            output_dir = f"decodedImages/{NoiseEnum.to_string(noise_type)}"
-                            output_path = os.path.join(output_dir, f"katukai_m{m}_noise{NoiseEnum.to_string(noise_type)}_amount{noise_amount:.1f}.bmp")
-                            if os.path.exists(output_path):
-                                continue                        
-                            st.session_state.pop('decoder', None)
-                            st.session_state.pop('coder', None)
-                            st.session_state['decoder'] = HadamardTransform(m)
-                            st.session_state['coder'] = ReedMuller(1, m, st.session_state['decoder'])
-                            encoded_bits = encode_message(message, st.session_state['coder'])
-                            st.session_state['encoded_bits'] = apply_noise(noise_type, noise_amount, st.session_state['coder'])
-                            # Check if the decoded image already exists
-                            if not os.path.exists(output_path):
-                                decoded_message = decode_message(st.session_state['coder'])
-                                decoded_message = np.array(decoded_message)
-                                decoded_image = binary_to_image(decoded_message, st.session_state['original_shape'])
-                                os.makedirs(output_dir, exist_ok=True)
-                                decoded_image.save(output_path)
-                            # Let memory clear
-                            time.sleep(10)
-            if order_of_operations == True:
-                for m in range(7, 8):
-                    st.session_state['decoder'] = HadamardTransform(m)
-                    st.session_state['coder'] = ReedMuller(1, m, st.session_state['decoder'])
-                    encoded_bits = encode_message(message, st.session_state['coder'])
-                    for noise_type in noise_types:
-                        for noise_amount in noise_intervals:
-                            if not (noise_type == NoiseEnum.EASE_IN or noise_type == NoiseEnum.EASE_OUT or noise_type == NoiseEnum.EASE_IN_OUT):
-                                continue
-                            if noise_amount == 0.0:
-                                continue
-                            output_dir = f"decoded/{NoiseEnum.to_string(noise_type)}"
-                            output_path = os.path.join(output_dir, f"katukai_m{m}_noise{NoiseEnum.to_string(noise_type)}_amount{noise_amount:.1f}.bmp")
-                            if os.path.exists(output_path):
-                                continue
-                            st.session_state['coder'].apply_noise(noise_type, noise_amount)
-                            # Check if the decoded image already exists
-                            if not os.path.exists(output_path):
-                                decoded_message = decode_message(st.session_state['coder'])
-                                decoded_message = np.array(decoded_message)
-                                decoded_image = binary_to_image(decoded_message, st.session_state['original_shape'])
-                                os.makedirs(output_dir, exist_ok=True)
-                                decoded_image.save(output_path)
-            st.success("All decoded images saved successfully.")
-
-
     # Decode section
     if get_encoded_message(st.session_state['coder']) is not None and not not_allowed:
         if st.button("Decode"):
@@ -417,6 +546,7 @@ def main():
                 st.session_state['decoded_message'] = decoded_message
                 if not st.session_state['vector']:
                     st.session_state['decoded_string'] = Utility.np_bit_array_to_str(np.array(decoded_message))
+                decoded_message = message_to_bits(decoded_message)
                 st.success(f"Decoded message: {decoded_message}\n\n\n")
                 if not st.session_state['vector']:
                     st.success(f"Decoded message: {st.session_state['decoded_string']}")
@@ -438,16 +568,6 @@ def main():
                 with col2:
                     st.image(binary_to_image(decoded_message, st.session_state['original_shape']), caption='Decoded Image', use_container_width=True)
                     decoded_image = binary_to_image(decoded_message, st.session_state['original_shape'])
-                    # Create directory if it doesn't exist
-                    output_dir = f"decodedImages/{noise_type}"
-                    os.makedirs(output_dir, exist_ok=True)
-                    # Save the decoded image
-                    if os.path.exists(output_dir):
-                        pass
-                    else:
-                        decoded_image.save(os.path.join(output_dir, f"decoded_image_m{m_value}_noise{noise_type}_amount{st.session_state['noise_amount']}.bmp"))
-                        st.success("Decoded image saved successfully.")
-                
     # Reset functionality
     if st.button("Start Over"):
         st.session_state.clear()

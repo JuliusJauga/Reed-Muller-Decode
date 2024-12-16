@@ -1,17 +1,35 @@
 import numpy as np
 import time
 
+# Utility class for common functions used in the Reed-Muller and Hadamard Transform classes, such as matrix operations or bit manipulation
 class Utility:
     @staticmethod
     def display_matrix(matrix):
+        '''
+        Display a matrix in a human-readable format.
+
+        Args:
+            matrix: The matrix to display.
+        
+        Returns:
+            None
+        '''
         for row in matrix:
             print(row)
 
     @staticmethod
     def vector_by_matrix_mod2(vector, matrix):
-        # start_time = time.time()
+        '''
+        Multiply a vector by a matrix modulo 2.
+
+        Args:
+            vector: The vector to multiply.
+            matrix: The matrix to multiply.
+        
+        Returns:
+            The result of the multiplication.
+        '''
         result = []
-        # columns = []
         matrix_length = len(matrix)
 
         for j in range(len(matrix[0])):
@@ -21,6 +39,16 @@ class Utility:
 
     @staticmethod
     def dot_product_mod2(v1, v2):
+        '''
+        Calculate the dot product of two vectors modulo 2.
+        
+        Args:
+            v1: The first vector.
+            v2: The second vector.
+        
+        Returns:
+            The result of the dot product modulo 2.
+        '''
         if len(v1) != len(v2):
             raise ValueError("Vectors must have the same length")
         result = 0
@@ -30,6 +58,15 @@ class Utility:
 
     @staticmethod
     def generate_unitary_matrix(n):
+        '''
+        Generate a unitary matrix of size n.
+
+        Args:
+            n: The size of the matrix.
+        
+        Returns:
+            The unitary matrix.
+        '''
         if n < 1:
             raise ValueError("n must be greater than 0")
         matrix = []
@@ -45,6 +82,16 @@ class Utility:
     
     @staticmethod
     def generate_kronecher_product(A, B):
+        '''
+        Generate the Kronecker product of two matrices A and B.
+
+        Args:
+            A: The first matrix.
+            B: The second matrix.
+        
+        Returns:
+            The result of the Kronecker product.
+        '''
         # Generate the Kronecker product of two matrices A and B
         rows_A = len(A)
         cols_A = len(A[0])
@@ -63,6 +110,16 @@ class Utility:
     
     @staticmethod
     def vector_by_matrix(vector, matrix):
+        '''
+        Multiply a vector by a matrix.
+        
+        Args:
+            vector: The vector to multiply.
+            matrix: The matrix to multiply.
+
+        Returns:
+            The result of the multiplication.
+        '''
         result = []
         columns = []
         for j in range(len(matrix[0])):
@@ -76,6 +133,16 @@ class Utility:
     
     @staticmethod
     def dot_product(v1, v2):
+        '''
+        Dot product of two vectors.
+        
+        Args:
+            v1: The first vector.
+            v2: The second vector.
+        
+        Returns:
+            The result of the dot product.
+        '''
         if len(v1) != len(v2):
             raise ValueError("Vectors must have the same length")
         result = 0
@@ -85,6 +152,16 @@ class Utility:
     
     @staticmethod
     def int_to_bit_array(n, length=None):
+        '''
+        Convert an integer to a binary array.
+
+        Args:
+            n: The integer to convert.
+            length: The length of the binary array.
+        
+        Returns:
+            The binary array.
+        '''
         # Convert to binary string and remove '0b' prefix
         binary_string = bin(n)[2:]
         
@@ -97,8 +174,17 @@ class Utility:
     
     @staticmethod
     def binary_to_string(binary_string, chunk_size=8):
-    # Split the binary string into chunks of 8 bits
+        '''
+        Convert a binary string to a string of characters.
 
+        Args:
+            binary_string: The binary string to convert.
+            chunk_size: The size of each chunk in bits.
+
+        Returns:
+            The string of characters.
+        '''
+        # Split the binary string into chunks of 8 bits
         characters = []
         for i in range(0, len(binary_string), chunk_size):
             character = binary_string[i:i + chunk_size]
@@ -106,22 +192,38 @@ class Utility:
         return ''.join(characters)
 
     @staticmethod
-    def flip_bit(noisy_message_in_bits: str, index: int) -> str:
+    def flip_bit(noisy_message_in_bits: list, index: int):
+        '''
+        Flip the bit at the specified index in the message.
+
+        Args:
+            noisy_message_in_bits: The message in bits.
+            index: The index of the bit to flip.
+        
+        Returns:
+            The message with the bit flipped.
+        '''
         # Flip the bit at the specified index
         noisy_message_in_bits[index] = 1 - noisy_message_in_bits[index]
         return noisy_message_in_bits
     
     @staticmethod
     def np_bit_array_to_str(bits):
-        # Reshape the bit array into bytes (8 bits per byte)
-        while bits.size % 8 != 0:
-            bits = bits[:-1]
-        bytes_array = bits.reshape(-1, 8)
+        '''
+        Convert a NumPy bit array to a string.
 
-        # Drop the last byte if it is all zeros
-        while np.all(bytes_array[-1] == 0):
-            if np.all(bytes_array[-1] == 0):
-                bytes_array = bytes_array[:-1]
+        Args:
+            bits: The NumPy bit array.
+            
+        Returns:
+            The string.
+        '''
+        # Ensure the bit array length is a multiple of 8
+        if bits.size % 8 != 0:
+            bits = np.pad(bits, (0, 8 - bits.size % 8), 'constant')
+
+        # Reshape the bit array into bytes (8 bits per byte)
+        bytes_array = bits.reshape(-1, 8)
 
         # Convert each byte to an integer
         byte_values = np.packbits(bytes_array, axis=1).flatten()

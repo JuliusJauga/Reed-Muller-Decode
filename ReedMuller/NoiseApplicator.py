@@ -4,10 +4,21 @@ from .NoiseEnum import NoiseEnum
 from .EasingFunctions import EasingFunctions
 import threading
 
-
+# Class to apply noise to a message
 class NoiseApplicator:
     @staticmethod
     def apply_noise(message, noise_type, noise_amount):
+        '''
+        Apply noise to a message with a specified noise type and noise amount.
+        
+        Args:
+            message: The message to apply noise to.
+            noise_type: The type of noise to apply.
+            noise_amount: The amount of noise to apply.
+        
+        Returns:
+            A tuple containing the noisy message and a list of the positions where noise was applied.
+        '''
         if noise_amount > 1 or noise_amount < 0:
             raise ValueError("Noise amount must be between 0 and 1")
         if noise_type == NoiseEnum.LINEAR:
@@ -33,6 +44,17 @@ class NoiseApplicator:
     
     @staticmethod
     def apply_noise_with_ease(message, noise_amount, easing_function):
+        '''
+        Apply noise to a message with a specified noise amount and easing function.
+
+        Args:
+            message: The message to apply noise to.
+            noise_amount: The amount of noise to apply.
+            easing_function: The easing function to use.
+        
+        Returns:
+            A tuple containing the noisy message and a list of the positions where noise was applied.
+        '''
         if not 0 <= noise_amount <= 1:
             raise ValueError("Noise amount must be between 0 and 1")
 
@@ -55,7 +77,17 @@ class NoiseApplicator:
 
         return noisy_message, mistake_positions
     def apply_noise_sequentially(message, noise_amount, easing_function):
-        # print("Applying noise sequentially")
+        '''
+        Apply noise to a message with a specified noise amount and easing function using multiple threads.
+
+        Args:
+            message: The message to apply noise to.
+            noise_amount: The amount of noise to apply.
+            easing_function: The easing function to use.
+        
+        Returns:
+            A tuple containing the noisy message and a list of the positions where noise was applied.
+        '''
         if not 0 <= noise_amount <= 1:
             raise ValueError("Noise amount must be between 0 and 1")
 

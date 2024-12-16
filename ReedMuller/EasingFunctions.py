@@ -1,5 +1,6 @@
 import math
 
+# Class to provide easing functions for noise application
 class EasingFunctions:
     @staticmethod
     def linear(t):

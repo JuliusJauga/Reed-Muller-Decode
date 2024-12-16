@@ -1,3 +1,4 @@
+# Description: Enum class for noise types
 class NoiseEnum:
     LINEAR = 0
     EASE_IN = 1
@@ -11,10 +12,25 @@ class NoiseEnum:
 
     @classmethod
     def list_all(cls):
+        '''
+        List all noise types.
+
+        Returns:
+            A list of all noise types.
+        '''
         return [cls.LINEAR, cls.EASE_IN, cls.EASE_OUT, cls.EASE_IN_OUT, cls.CUBIC_IN, cls.CUBIC_OUT, cls.CUBIC_IN_OUT, cls.BOUNCE_OUT, cls.ELASTIC_OUT]
     
     @staticmethod
     def to_string(noise_type):
+        '''
+        Convert a noise type to a string.
+
+        Args:
+            noise_type: The noise type to convert.
+        
+        Returns:
+            The string representation of the noise type.
+        '''
         if noise_type == NoiseEnum.LINEAR:
             return "Linear"
         elif noise_type == NoiseEnum.EASE_IN:
@@ -38,6 +54,15 @@ class NoiseEnum:
         
     @staticmethod
     def from_string(noise_type):
+        '''
+        Convert a string to a noise type.
+
+        Args:
+            noise_type: The string to convert.
+        
+        Returns:
+            The noise type.
+        '''
         if noise_type == "Linear":
             return NoiseEnum.LINEAR
         elif noise_type == "Ease In":
