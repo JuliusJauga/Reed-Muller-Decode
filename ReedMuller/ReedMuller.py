@@ -477,7 +477,7 @@ class ReedMuller:
         if len(self.noisy_message) == 0:
             raise ValueError("No noisy message to decode")
         
-        if len(self.noisy_message) > 2**self.m * 8:
+        if len(self.noisy_message) > (2**self.m) * 8:
             return self.decode_sequentially(self.noisy_message)
         chunks = ReedMuller.split_message_for_decoding(self.noisy_message, 2**self.m)
         decoded_message = []
@@ -511,9 +511,7 @@ class ReedMuller:
         shared_array = np.ndarray(flat_message.shape, dtype=flat_message.dtype, buffer=shared_mem.buf)
         np.copyto(shared_array, flat_message)
         try:
-            # Calculate optimal ranges for processing based on os.cpu_count()
             ranges = self.calculate_ranges(len(flat_message), chunk_size)
-            # Process chunks in parallel
             decoded_message = []
             with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
                 futures = {
@@ -530,7 +528,6 @@ class ReedMuller:
                         decoded_message.extend(result)
 
         finally:
-            # Clean up shared memory
             shared_mem.close()
             shared_mem.unlink()
             ranges.clear()

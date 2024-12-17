@@ -375,8 +375,6 @@ def main():
             not_allowed = True
         else:
             st.session_state['uploaded_file'] = None
-            st.session_state['original_image'] = None
-            st.session_state['original_shape'] = None
             st.session_state['vector'] = True
             not_allowed = False
             
@@ -384,8 +382,6 @@ def main():
         message = st.text_area("Enter your message:", height=150)
         print(f"Message: {message}")
         st.session_state['uploaded_file'] = None
-        st.session_state['original_image'] = None
-        st.session_state['original_shape'] = None
         st.session_state['vector'] = False
         if message is not None and len(message.strip()) > 0:
             not_allowed = False
@@ -404,12 +400,13 @@ def main():
             
             # Convert image to binary
             message, orig_shape = image_to_binary(image)
-            st.session_state['original_shape'] = orig_shape  # Save original shape
+            st.session_state['original_shape'] = orig_shape
             st.session_state['encoded_bits'] = None
             st.session_state['not_encoded_image_bits'] = message
             st.session_state['vector'] = False
             not_allowed = False
             
+    # Default values
     noise_amount = 0.0
     noise_type = NoiseEnum.LINEAR
 
@@ -542,7 +539,7 @@ def main():
                 if not st.session_state['vector']:
                     st.session_state['decoded_string'] = Utility.bit_list_to_str(decoded_message)
                 decoded_message = message_to_bits(decoded_message)
-                st.success(f"Decoded message: {decoded_message}\n\n\n")
+                st.success(f"Decoded: {decoded_message}\n\n\n")
                 if not st.session_state['vector']:
                     st.success(f"Decoded message: {Utility.bit_list_to_str(decoded_message)}")
                     st.success(f"Original message: {Utility.bit_list_to_str(st.session_state['coder'].get_noisy_original_message())}")
