@@ -6,7 +6,6 @@ from ReedMuller import Utility
 import time
 import numpy as np
 from PIL import Image
-import os
 from bitarray import bitarray
 from typing import Union
 
