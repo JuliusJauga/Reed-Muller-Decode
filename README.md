@@ -1,9 +1,6 @@
 # Reed-Muller-Decode
-<div style="display: flex; justify-content: space-around;">
-    <img src="./katukai2.gif" alt="Noise applied for m1" style="width: 45%;">
-    <img src="./katukai7.gif" alt="Noise applied for m7" style="width: 45%;">
-</div>
-<div >
+![noise applied for m1](./katukai2.gif)
+![noise applied for m7](./katukai7.gif)
 Noise applied to different levels of M.
 
 ## Introduction
