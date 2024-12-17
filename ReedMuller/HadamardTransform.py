@@ -31,6 +31,8 @@ class HadamardTransform(IDecoder):
         H_i_m = Utility.generate_kronecher_product(I, H)
         I = Utility.generate_unitary_matrix(2 ** (i - 1))
         H_i_m = Utility.generate_kronecher_product(H_i_m, I)
+        I.clear()
+        H.clear()
         return H_i_m
 
     def fast_hadamard_transform(self, message):
@@ -49,6 +51,7 @@ class HadamardTransform(IDecoder):
                 continue
             H_i_m = self.generate_H_i_m(i)
             vector = Utility.vector_by_matrix(vector, H_i_m)
+            H_i_m.clear()
         return vector
 
 
