@@ -360,7 +360,6 @@ class ReedMuller:
             chunks.append(message[i:i + m])
         while len(chunks[-1]) < m:
             chunks[-1].append(0)
-            appended_bits += 1
         return chunks
 
     @staticmethod
