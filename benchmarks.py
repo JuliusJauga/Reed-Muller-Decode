@@ -10,27 +10,11 @@ from collections import defaultdict
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import signal
+from concurrent.futures import ThreadPoolExecutor, as_completed
 R = 1
 
 
-def reed_muller_error_correction_capability(r, m):
-    """
-    Calculate the number of errors a Reed-Muller code can correct.
-
-    Parameters:
-        r (int): The order of the Reed-Muller code.
-        m (int): The number of variables in the Reed-Muller code.
-
-    Returns:
-        int: The maximum number of errors the code can correct.
-    """
-    # Calculate the minimum Hamming distance
-    d_min = 2**(m - r)
-    
-    # Calculate the error correction capability
-    t = (d_min - 1) // 2  # Equivalent to floor((d_min - 1) / 2)
-    
-    return t
 
 class BenchmarkData:
     def __init__(self, m, message_length, encoded_length, redundant_bits, noise_amount, encoding_time, decoding_time, is_equal):
@@ -67,81 +51,90 @@ class BenchmarkDataContainer:
             self.old_data = [BenchmarkData(**data) for data in data_list]
     
     def append(self):
+        if not os.path.exists('benchmark_data.json'):
+            self.save()
+            return
         self.load_old()
         self.data = self.old_data + self.data
         self.save()
 
-def image_to_binary(image):
-    # Load the image
-    img = image.convert('RGB')
-    img_array = np.array(img, dtype=np.uint8)  # Convert to NumPy array
+# Call the parallel benchmark
 
-    # Flatten and convert each channel to binary
-    binary_array = np.unpackbits(img_array.flatten())
+def reed_muller_error_correction_capability(r, m):
+    """
+    Calculate the number of errors a Reed-Muller code can correct.
 
-    return binary_array, img_array.shape  # Return binary data and original shape
+    Parameters:
+        r (int): The order of the Reed-Muller code.
+        m (int): The number of variables in the Reed-Muller code.
 
-def binary_to_image(binary_array, shape):
-    # Reshape and convert binary back to uint8
-    byte_array = np.packbits(binary_array)
-    # Calculate the number of bytes needed to match the original shape
-    num_bytes = np.prod(shape)
-    # Ensure the byte array has the correct size before reshaping
-    if len(byte_array) < num_bytes:
-        byte_array = np.pad(byte_array, (0, num_bytes - len(byte_array)), 'constant', constant_values=0)
-    if len(byte_array) > num_bytes:
-        byte_array = byte_array[:num_bytes]
-
-    img_array = byte_array.reshape(shape)
-    # Convert back to a PIL image
-    return Image.fromarray(img_array, mode='RGB')
-
+    Returns:
+        int: The maximum number of errors the code can correct.
+    """
+    # Calculate the minimum Hamming distance
+    d_min = 2**(m - r)
+    
+    # Calculate the error correction capability
+    t = (d_min - 1) // 2  # Equivalent to floor((d_min - 1) / 2)
+    
+    return t
 
 def main():
-    m_ranges_words = range(11, 12)
+    m_ranges_words = range(1, 13)
     benchmark_data = BenchmarkDataContainer()
+    def signal_handler(sig, frame):
+        print('You pressed Ctrl+C! Saving benchmark data...')
+        benchmark_data.append()
+        exit(0)
 
-    # for m in m_ranges_words:
-    #     start_m_time = time.time()
-    #     vector_length = m+1
-    #     print(f"m: {m}")
-    #     hadamardTransform = HadamardTransform(m)
-    #     rm = ReedMuller(1, m, hadamardTransform)
+    # for i in range(1, 13):
+    #     start_time = time.time()
+    #     hadamardTransform = HadamardTransform(i)
+    #     end_time = time.time()
+    #     print(f"Time taken for m={i}: {end_time - start_time} seconds")
+
+    signal.signal(signal.SIGINT, signal_handler)
+    for m in m_ranges_words:
+        start_m_time = time.time()
+        vector_length = m+1
+        print(f"m: {m}")
+        hadamardTransform = HadamardTransform(m)
+        rm = ReedMuller(1, m, hadamardTransform)
         
-    #     for i in range(1, 100):
-    #         print(f"i: {i}")
-    #         vector = np.random.randint(0, 2**vector_length)
-    #         bit_list = [int(bit) for bit in bin(vector)[2:]]
-    #         bit_list = bit_list + [0] * (vector_length - len(bit_list))
-    #         rm.set_message(bit_list)
-    #         start_time = time.time()
-    #         encoded = rm.encode()
-    #         encoded_length = len(encoded)
-    #         end_time = time.time()
-    #         encoding_time = end_time - start_time
-    #         ranges = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.49]
-    #         for noise_amount in ranges:
-    #             rm.apply_noise(NoiseEnum.LINEAR, noise_amount)
-    #             start_time = time.time()
-    #             decoded = rm.decode()
-    #             end_time = time.time()
-    #             decoding_time = end_time - start_time
-    #             benchmark = BenchmarkData(
-    #                 m=m,
-    #                 message_length=vector_length,
-    #                 encoded_length=encoded_length,
-    #                 redundant_bits=encoded_length - vector_length,
-    #                 noise_amount=noise_amount,
-    #                 encoding_time=encoding_time,
-    #                 decoding_time=decoding_time,
-    #                 is_equal=(bit_list == decoded)
-    #             )
-    #             benchmark_data.add(benchmark)
-    #     end_m_time = time.time()
-    #     print(f"Time taken for m={m}: {end_m_time - start_m_time} seconds")
+        for i in range(1, 100):
+            print(f"i: {i}")
+            vector = np.random.randint(0, 2**vector_length)
+            bit_list = [int(bit) for bit in bin(vector)[2:]]
+            bit_list = bit_list + [0] * (vector_length - len(bit_list))
+            rm.set_message(bit_list)
+            start_time = time.time()
+            encoded = rm.encode()
+            encoded_length = len(encoded)
+            end_time = time.time()
+            encoding_time = end_time - start_time
+            ranges = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.49]
+            for noise_amount in ranges:
+                rm.apply_noise(NoiseEnum.LINEAR, noise_amount)
+                start_time = time.time()
+                decoded = rm.decode()
+                end_time = time.time()
+                decoding_time = end_time - start_time
+                benchmark = BenchmarkData(
+                    m=m,
+                    message_length=vector_length,
+                    encoded_length=encoded_length,
+                    redundant_bits=encoded_length - vector_length,
+                    noise_amount=noise_amount,
+                    encoding_time=encoding_time,
+                    decoding_time=decoding_time,
+                    is_equal=(bit_list == decoded)
+                )
+                benchmark_data.add(benchmark)
+        end_m_time = time.time()
+        print(f"Time taken for m={m}: {end_m_time - start_m_time} seconds")
 
-    # # Save benchmark data
-    # benchmark_data.append()
+    # Save benchmark data
+    benchmark_data.append()
 
     # # Load benchmark data
     benchmark_data.load()
@@ -196,7 +189,7 @@ def main():
     plt.title("Sėkmės rodiklis vs m kiekvienam triukšmo kiekiui")
     plt.xlabel("m")
     plt.ylabel("Sėkmės rodiklis")
-    plt.xticks(range(1, 12))
+    plt.xticks(range(1, 13))
     plt.legend()
     plt.grid(True)
     plt.savefig("plots/success_rate_vs_m.png")
@@ -208,7 +201,7 @@ def main():
     plt.title("Vidutinis kodavimo laikas vs m")
     plt.xlabel("m")
     plt.ylabel("Dekodavimo laikas (s)")
-    plt.xticks(range(1, 12))
+    plt.xticks(range(1, 13))
     plt.grid(True)
     plt.savefig("plots/encoding_time_vs_m.png")
     plt.close()
@@ -218,7 +211,7 @@ def main():
     plt.plot(ms, [averaged_decoding_times[m] for m in ms], marker='o', color='orange')
     plt.title("Vidutinis dekodavimo laikas vs m")
     plt.xlabel("m")
-    plt.xticks(range(1, 12))
+    plt.xticks(range(1, 13))
     plt.ylabel("Dekodavimo laikas (s)")
     plt.grid(True)
     plt.savefig("plots/decoding_time_vs_m.png")
@@ -229,7 +222,7 @@ def main():
     plt.plot(ms, [averaged_redundant_bits[m] for m in ms], marker='o', color='green')
     plt.title("Pridėtiniai bitai vs m")
     plt.xlabel("m")
-    plt.xticks(range(1, 12))
+    plt.xticks(range(1, 13))
     plt.ylabel("Pridėtiniai bitai")
     plt.grid(True)
     plt.savefig("plots/redundant_bits_vs_m.png")
@@ -237,7 +230,7 @@ def main():
     
     # 5. Error correction capability graph
     m_vs_error_correction = []
-    for m in range(1, 12):
+    for m in range(1, 13):
         t = reed_muller_error_correction_capability(R, m)
         m_vs_error_correction.append((m, t))
     m_values, t_values = zip(*m_vs_error_correction)
@@ -245,7 +238,7 @@ def main():
     plt.plot(m_values, t_values, marker='o', color='red')
     plt.title("Klaidų korekcijos galimybė vs m")
     plt.xlabel("m")
-    plt.xticks(range(1, 12))
+    plt.xticks(range(1, 13))
     plt.ylabel("Klaidų korekcijos galimybė")
     plt.grid(True)
     plt.savefig("plots/error_correction_capability_vs_m.png")

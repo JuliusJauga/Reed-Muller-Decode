@@ -2,11 +2,14 @@ from .Utility import Utility
 from .IDecoder import IDecoder
 import numpy as np
 import time
+import threading
 # Hadamard Transform class implementing the IDecoder interface
 class HadamardTransform(IDecoder):
     def __init__(self, m):
         self.m = m
-    
+        self.Hadamard_matrices = None
+        self.generate_Hadamard_matrices()
+
     def change_m(self, m):
         '''
         Change the value of m.
@@ -15,7 +18,18 @@ class HadamardTransform(IDecoder):
             m: The new value of m.
         '''
         self.m = m
+        self.generate_Hadamard_matrices()
 
+    def generate_Hadamard_matrices(self):
+        '''
+        Generate the Hadamard matrices for all values of i.
+
+        Returns:
+            None
+        '''
+        self.Hadamard_matrices = [None] * (self.m + 1)
+        for i in range(1, self.m + 1):
+            self.Hadamard_matrices[i] = self.generate_H_i_m(i)
     def generate_H_i_m(self, i):
         '''
         Generate the H_i_m matrix for a given i.
@@ -49,9 +63,8 @@ class HadamardTransform(IDecoder):
         for i in range(self.m + 1):
             if i == 0:
                 continue
-            H_i_m = self.generate_H_i_m(i)
+            H_i_m = self.Hadamard_matrices[i]
             vector = Utility.vector_by_matrix(vector, H_i_m)
-            H_i_m.clear()
         return vector
 
 
@@ -85,12 +98,10 @@ class HadamardTransform(IDecoder):
             return
         position_in_bits = HadamardTransform.reverse_bit_list(position_in_bits)
         position_reversed = position_in_bits
-        while len(position_reversed) < self.m + 1:
-            position_reversed.append(0)
         if sign == 1:
-            position_reversed = [1] + position_reversed[:-1]
+            position_reversed = [1] + position_reversed
         else:
-            position_reversed = [0] + position_reversed[:-1]
+            position_reversed = [0] + position_reversed
         return position_reversed
     
     @staticmethod
