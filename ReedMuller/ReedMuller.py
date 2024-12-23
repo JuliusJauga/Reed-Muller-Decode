@@ -75,6 +75,18 @@ class ReedMuller:
         if r > m:
             raise ValueError("r must be less than or equal to m")
         
+    def change_decoder(self, decoder: IDecoder):
+        '''
+        Change the decoder for the Reed-Muller code.
+
+        Args:
+            decoder (IDecoder): The new decoder to use.
+        
+        Returns:
+            None
+        '''
+        self.decoder = decoder
+
     def reset(self):
         '''
         Reset the Reed-Muller object to its initial state.

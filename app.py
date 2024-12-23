@@ -293,6 +293,19 @@ def render_bits(start, end):
     bits_html += "</div>"
     return bits_html
 
+def change_decoder(coder, decoder):
+    '''
+    Changes the decoder used by the Reed-Muller encoder.
+
+    Args:
+        decoder (HadamardTransform): The Hadamard transform object to use as the decoder
+    
+    Returns:
+        Coder: The updated Reed-Muller encoder object
+    '''
+    coder.change_decoder(decoder)
+    return coder
+
 # Add custom CSS for colored bits and image centering
 st.markdown(
     """
@@ -412,7 +425,6 @@ def main():
 
     if not not_allowed and m_value and message is not None:
         if st.button("Encode"):
-            st.session_state['decoder'] = HadamardTransform(m_value)
             st.session_state['coder'] = ReedMuller(1, m_value, st.session_state['decoder'])
             with st.spinner('Encoding...'):
                 start_time = time.time()
@@ -531,6 +543,8 @@ def main():
             if st.session_state['uploaded_file'] is None:
                 with st.spinner('Decoding...'):
                     start_time = time.time()
+                    decoder = HadamardTransform(m_value)
+                    change_decoder(st.session_state['coder'], decoder)
                     decoded_message = decode_message(st.session_state['coder'])
                     end_time = time.time()
                 elapsed_time = end_time - start_time
@@ -546,6 +560,8 @@ def main():
             else:
                 with st.spinner('Decoding...'):
                     start_time = time.time()
+                    decoder = HadamardTransform(m_value)
+                    change_decoder(st.session_state['coder'], decoder)
                     decoded_message = decode_message(st.session_state['coder'])
                     end_time = time.time()
                 elapsed_time = end_time - start_time
